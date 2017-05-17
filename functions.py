@@ -130,7 +130,6 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=True):
         (0, 0, 19/2)
 
     '''
-    # verbose("Solving xAb...")
     R = b.parent().base_ring()
     try:
         R = R.fraction_field()
@@ -145,9 +144,9 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=True):
     hnew = try_lift(b.parent()(b))
     ell = A.nrows()
     alphas = vector(QQ,ell)
+    A = try_lift(A)
     for j in range(ell):
         ej = A.row(j)
-        ej = try_lift(ej)
         ejleadpos = first_nonzero_pos(ej)
         alphas[j] = hnew[ejleadpos] / ej[ejleadpos]
         hnew -= alphas[j] * ej
@@ -260,7 +259,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
         qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
         break
 
-    qq = qq.parent()([o.lift() for o in qq.list()]) # DEBUG
+    qq = qq.parent()([o.lift() for o in qq.list()])
     qqT = try_lift(qq(T))
     qq_aell = qq.subs({x:R(aell)})
     ord_basis_small = try_lift(ord_basis.submatrix(0,0,ncols=len(hord)))
@@ -277,20 +276,19 @@ def find_Apow_and_ord_three_stage(A, E, p, prec):
     ord_basis_qexp = []
     Apow_echelon = Upa.parent()(Upa)
     Apow_echelon = my_ech_form(try_lift(Apow_echelon).change_ring(R), p) # In place!
-    # Apow_echelon = my_ech_form(try_lift(Apow_echelon).change_ring(ZpCA(p,prec)), p) # In place! # DEBUG
-    ord_basis_0 = multiply_and_reduce(Apow_echelon,E) #.change_ring(Qp(p,prec))
+    ord_basis_0 = multiply_and_reduce(Apow_echelon,E)
     for qexp in ord_basis_0.rows():
-        if min(o.valuation(p) for o in qexp) < prec: # != 0:
+        if qexp != 0: #min(o.valuation(p) for o in qexp) < prec: # != 0:
             ord_basis_qexp.append(qexp)
 
-    ord_basis = try_lift(Matrix(ord_basis_qexp)).change_ring(R) # DEBUG
+    ord_basis = try_lift(Matrix(ord_basis_qexp)).change_ring(R)
     Up_on_ord = hecke_matrix_on_ord(p, ord_basis, None, level = p).change_ring(R)
     f_degree = try_lift(Up_on_ord).change_ring(GF(p)).charpoly().splitting_field(names='a').degree()
     r = (p**f_degree - 1) * p**prec
     Upb_on_ord = take_power(Up_on_ord, r - first_power - 1)
     return ord_basis, Upa, Upb_on_ord
 
-def find_Apow_and_ord(A, E, p, prec):
+def find_Apow_and_ord_two_stage(A, E, p, prec):
     f_degree = A.change_ring(GF(p)).charpoly().splitting_field(names='a').degree()
     r = (p**f_degree - 1) * p**prec
     Apow = take_power(A, r-1)
@@ -342,7 +340,7 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
         ap = ZZ(3)
     elif p == 2:
         ap = ZZ(4)
-    loss = 0 #ZZ((nu * (ap - 1) / (p+1) ).floor()+1)
+    loss = ZZ((nu * (ap - 1) / (p+1) ).floor()+1)
     ploss = p**loss
     new_UpH = [ ploss * o for o in UpH ]
     UpH = UpH.parent()(new_UpH)
@@ -465,7 +463,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
 
         print("Step 3b: Apply Up^(r-1) to H")
         if algorithm == 'twostage':
-            V0  = list(find_Apow_and_ord(A, eimat, p, prec))
+            V0  = list(find_Apow_and_ord_two_stage(A, eimat, p, prec))
         else:
             V0 = list(find_Apow_and_ord_three_stage(A,eimat,p,prec))
         ord_basis = V0[0]
@@ -740,61 +738,6 @@ def my_ech_form(A,p):
 
     return A
 
-def my_ech_form_old(A,p,extramats = None):
-    r"""
-    Returns echelon form of matrix ``A`` over the ring of integers modulo
-    `p^m`, for some prime `p` and `m \ge 1`.
-
-    .. todo::
-
-        This should be moved to :mod:`sage.matrix.matrix_modn_dense` at some
-        point.
-
-    INPUT:
-
-    - ``A`` -- matrix over ``Zmod(p^m)`` for some m.
-    - ``p`` - prime p.
-
-    OUTPUT:
-
-    - matrix over ``Zmod(p^m)``.
-
-    EXAMPLES::
-
-        sage: from sage.modular.overconvergent.hecke_series import ech_form
-        sage: A = MatrixSpace(Zmod(5**3),3)([1,2,3,4,5,6,7,8,9])
-        sage: ech_form(A,5)
-        [1 2 3]
-        [0 1 2]
-        [0 0 0]
-    """
-    S = A[0,0].parent()
-    try:
-        S = S.fraction_field()
-    except (TypeError,AttributeError):
-        pass
-    A = A.change_ring(S)
-    a = A.nrows()
-    b = A.ncols()
-    if extramats is None:
-        extramats = []
-    k = 0 # position pivoting row will be swapped to
-    for j in range(b):
-        if k < a:
-            pivj = argmin(A.column(j).list()[k:], fun = lambda x:x.valuation(p))
-            if A[pivj,j].valuation(p) < +Infinity: # else column already reduced
-                A.swap_rows(pivj, k)
-                lam0 = ~S(A[k,j].unit_part())
-                A.set_row_to_multiple_of_row(k, k, lam0)
-                lam1 = [S(-A[o,j].lift() / A[k,j].lift()) for o in range(k+1,a)]
-                for A0 in extramats:
-                    A0.swap_rows(pivj, k)
-                    A0.set_row_to_multiple_of_row(k, k, lam0)
-                for A0 in extramats + [A]:
-                    for i in range(k+1,a):
-                        A0.add_multiple_of_row(i, k, lam1[i-k-1])
-                k += 1
-    return A
 
 def my_levelN_UpGj(p,N,k,m,modformsring,bound):
     r"""
