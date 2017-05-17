@@ -270,13 +270,13 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
     return ell, (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
 
 def find_Apow_and_ord_three_stage(A, E, p, prec):
-    R = Zmod(p**prec) #ZpCA(p,prec)
+    R = ZpCA(p,prec)
     s0inv = QQ(2)
     first_power = QQ(prec * s0inv).ceil()
     Upa = take_power(A, first_power)
     ord_basis_qexp = []
     Apow_echelon = Upa.parent()(Upa)
-    Apow_echelon = ech_form(try_lift(Apow_echelon).change_ring(R), p) # In place!
+    Apow_echelon = my_ech_form(try_lift(Apow_echelon).change_ring(R), p) # In place!
     # Apow_echelon = my_ech_form(try_lift(Apow_echelon).change_ring(ZpCA(p,prec)), p) # In place! # DEBUG
     ord_basis_0 = multiply_and_reduce(Apow_echelon,E) #.change_ring(Qp(p,prec))
     for qexp in ord_basis_0.rows():
@@ -730,13 +730,10 @@ def my_ech_form(A,p):
     k = 0 # position pivoting row will be swapped to
     for j in range(b):
         if k < a:
-            pivj = k # find new pivot
-            for i in range(k+1,a):
-                if valuation(A[i,j],p) < valuation(A[pivj,j],p):
-                    pivj = i
-            if valuation(A[pivj,j],p) < +Infinity: # else column already reduced
+            pivj = argmin(A.column(j).list()[k:], fun = lambda x:x.valuation(p)) + k
+            if A[pivj,j] != 0: #.valuation(p) < +Infinity: # else column already reduced
                 A.swap_rows(pivj, k)
-                A.set_row_to_multiple_of_row(k, k, S(ZZ(A[k,j])/(p**valuation(A[k,j],p)))**(-1))
+                A.set_row_to_multiple_of_row(k, k, ~S(ZZ(A[k,j].unit_part())))
                 for i in range(k+1,a):
                     A.add_multiple_of_row(i, k, S(-ZZ(A[i,j])/ZZ(A[k,j])))
                 k = k + 1
