@@ -70,6 +70,10 @@ gammaminus = ModFormqExp(qexp_minus, Qp(p,prec), weight=1)
 
 set_verbose(1)
 
+##### THIS EXAMPLE WORKS
+import functions
+reload(functions)
+from functions import *
 Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, 83,modformsring=False, weightbound=6,eps=kronecker_character(-83),orthogonal_form=gammaminus,algorithm='threestage',force_computation=False)
 print Lp / Lp1good
 
@@ -77,5 +81,3 @@ g1qexp = sage_character_to_magma(kronecker_character(-83),magma=magma).ModularFo
 g1 = ModFormqExp(g1qexp, Qp(p,prec), weight=1)
 Lp2, ell2 = Lpvalue(gammaplus, f0, g1, p, prec, 83,modformsring=False, weightbound=6,eps=kronecker_character(-83),orthogonal_form=gammaminus)
 print Lp2 / Lp2good
-
-

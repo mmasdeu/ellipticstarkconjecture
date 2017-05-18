@@ -15,6 +15,7 @@ from sage.structure.sage_object import SageObject
 from sage.interfaces.magma import magma
 from sage.modular.dirichlet import DirichletGroup
 from sage.rings.padics.factory import ZpCA,ZpCR,Qp
+import sys
 
 def argmax(iterable, fun=None):
     if fun is None:
@@ -95,7 +96,7 @@ def first_nonzero_pos(v,prec=None,return_val=False):
             return ans[0]
     except StopIteration:
         if return_val:
-            return Infinty, None
+            return Infinity, None
         else:
             return Infinity
 
@@ -238,7 +239,7 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
             ans.append(QQ(g.coefficients([n])[0]) / QQ(n)**ZZ(1+t))
     assert len(ans) == prec
     def conv(M):
-        return sum((ans[i] * hn[M-i] for i in xrange(M)))
+        return sum((ans[i] * hn[M-i] for i in xrange(M+1)))
     return conv
 
 def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1):
@@ -400,7 +401,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=2):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=2, lauders_advice = False):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
@@ -416,6 +417,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         nu = N.valuation(p)
         N = N.prime_to_m_part(p)
     else:
+        N = ZZ(N)
         nu = N.valuation(p)
     print("Tame level N = %s, prime p = %s"%(N,p))
     prec = ZZ(prec)
@@ -499,8 +501,18 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
     Hord = Hord.change_ring(Apow_data[0].parent().base_ring())
 
     print("Step 4: Project onto f-component")
-    if orthogonal_form is None:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps)
+    if lauders_advice == True:
+        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+        n = 1
+        while f[n] == 0:
+            n += 1
+        Lpa =  piHord[n] / f[n]
+        print "Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)"
+        print [(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)]
+        print "Done"
+
+    elif orthogonal_form is None:
+        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
         n = 1
         while f[n] == 0:
             n += 1
@@ -1011,7 +1023,7 @@ def sage_character_to_magma(chi,magma=None):
                 return chim
     raise RuntimeError("Should not get to this point")
 
-def test_formula_display45(Lp, p, E, K, remove_numpoints = False):
+def test_formula_display45(Lp, p, E, K, remove_numpoints = False, outfile=None):
     from sage.arith.misc import algdep
     prec = Lp.parent().precision_cap() + 100
     QQp = Qp(p,prec)
@@ -1028,7 +1040,10 @@ def test_formula_display45(Lp, p, E, K, remove_numpoints = False):
     PH = E.heegner_point(K.discriminant())
     PH = PH.point_exact(200) # Hard-coded, DEBUG
     H = PH[0].parent()
-    H1, H_to_H1, K_to_H1, _  = H.composite_fields(K,both_maps = True)[0]
+    try:
+        H1, H_to_H1, K_to_H1, _  = H.composite_fields(K,both_maps = True)[0]
+    except AttributeError:
+        H1, H_to_H1, K_to_H1 = K, lambda x:x, lambda x:x
     kgen = K_to_H1(K.gen())
     sigmas = [o for o in H1.automorphisms() if o(kgen) == kgen]
     EH1 = E.change_ring(H1)
@@ -1051,19 +1066,19 @@ def test_formula_display45(Lp, p, E, K, remove_numpoints = False):
             print 'nn=',nn
     assert PK.order() == Infinity
 
-    print "------------------------------------"
-    print "p = %s, cond(E) = %s, disc(K) = %s"%(p,E.conductor(),K.discriminant())
-    print "------------------------------------"
-    print "h_K = %s"%hK
-    print "# E(F_p) = %s"%EFp
+    fwrite("------------------------------------", outfile)
+    fwrite("p = %s, cond(E) = %s, disc(K) = %s"%(p,E.conductor(),K.discriminant()), outfile)
+    fwrite("------------------------------------", outfile)
+    fwrite("h_K = %s"%hK, outfile)
+    fwrite("# E(F_p) = %s"%EFp, outfile)
     if remove_numpoints:
         EFp = 1
-        print "  (not taking them into account)"
-    print "PK = %s"%PK
+        fwrite("  (not taking them into account)", outfile)
+    fwrite("PK = %s"%PK, outfile)
 
     ratio = Lp / ( (EFp**2 * logPK**2 ) / (p * (p-1) * hK * ulog) )
-
-    print "ratio = %s"%algdep(ratio, 1).roots(QQ)[0][0]
+    fwrite("ratio = %s"%ratio, outfile)
+    fwrite("ratio ~ %s"%algdep(ratio, 1).roots(QQ)[0][0], outfile)
     return ratio
 
 def print_table_examples(Dbound):
@@ -1079,3 +1094,18 @@ def print_table_examples(Dbound):
         for p in prime_range(5,50):
             print p,E.change_ring(GF(p)).count_points().factor()
         print ''
+
+def fwrite(string, outfile,newline = True):
+    if outfile is None:
+        fout = sys.stdout
+        if newline:
+            fout.write(string + '\n')
+        else:
+            fout.write(string)
+    else:
+        with open(outfile,"a") as fout:
+            if newline:
+                fout.write(string + '\n')
+            else:
+                fout.write(string)
+        return

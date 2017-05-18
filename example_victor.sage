@@ -79,6 +79,6 @@ h0 = ModFormqExp(qexp_inv, Cycp, weight=1)
 
 set_verbose(1)
 
-Lp, ell = Lpvalue(g0, f0, h0, p, prec, 83,modformsring=False, weightbound=6,eps=kronecker_character(-83*5),magma=magma,orthogonal_form=gammaminus)
+Lp, ell = Lpvalue(g0, f0, h0, p, prec, 83,modformsring=True, weightbound=4,eps=kronecker_character(-83*5))
 
 print Lp

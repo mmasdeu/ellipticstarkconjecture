@@ -4,10 +4,30 @@ import functions
 reload(functions)
 from functions import *
 
-p = 11
-prec = 10 # Paper uses 70
+
+### Find examples following Alan's email
+admissible_pairs = []
+for p in prime_range(5,20):
+    for D in range(11,100):
+        if D % 4 != 3:
+            continue
+        try:
+            E = EllipticCurve(str(D))
+            if E.rank() != 1:
+                continue
+        except:
+            continue
+        if len(QuadraticField(-D,'a').ideal(p).factor()) != 2:
+            continue
+        print p,D
+        admissible_pairs.append((p,D))
+
+
+###
+set_verbose(1)
+p, N = admissible_pairs[1]
+prec = 20 # Paper uses 70
 QQp = Qp(p,prec)
-N = 83
 E = EllipticCurve(str('%sa1'%N))
 f0 = E.modular_form()
 
@@ -17,13 +37,6 @@ K.<a> = NumberField(x^2+N)
 M = 30000
 eps = kronecker_character(-N)
 g1qexp = sage_character_to_magma(eps,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(M).Eltseq().sage()
-
-# # Test that we did it right
-# test_qexp = convolution(g1qexp,g1qexp)
-
-# S = ModularForms(Gamma0(N),2)
-# Sbasis = S.echelon_basis()
-# print test_qexp[:100] ==  (9/4*Sbasis[0] + 3*Sbasis[1]+1*Sbasis[2]+6*Sbasis[3]+7*Sbasis[4]+2*Sbasis[5]+4*Sbasis[6]+10*Sbasis[7]).coefficients(range(100))
 
 g0 = ModFormqExp(g1qexp, Qp(p,prec), weight=1,character = eps)
 
@@ -41,9 +54,9 @@ gammaplus = ModFormqExp(qexp_plus, Qp(p,prec), weight=1)
 gammaminus = ModFormqExp(qexp_minus, Qp(p,prec), weight=1)
 
 set_verbose(1)
-Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, N,modformsring=False, weightbound=6,eps=kronecker_character(-N),orthogonal_form=gammaminus,derivative_order=3)
-
-ratio = test_formula_display45(Lp, p, E, K, remove_numpoints = True)
+Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, N,modformsring=False, weightbound=6,eps=kronecker_character(-N),lauders_advice=True,derivative_order=3)
+ratio = test_formula_display45(Lp, p, E, K, remove_numpoints = False)
+print p, N, ratio
 
 # Lp = Lpa
 # P0 = E.heegner_point(-N)
