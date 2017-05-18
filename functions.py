@@ -68,7 +68,7 @@ def take_power(x,n):
         x = multiply_and_reduce(x,x)
     return multiply_and_reduce(x, y)
 
-def first_nonzero_pos(v,prec=None):
+def first_nonzero_pos(v,prec=None,return_val=False):
     r'''
 
     TESTS::
@@ -86,11 +86,18 @@ def first_nonzero_pos(v,prec=None):
     '''
     try:
         if prec is not None:
-            return next((i for i,o in enumerate(v) if o.valuation() >= prec))
+            ans = next(((i,o) for i,o in enumerate(v) if o.valuation() >= prec))
         else:
-            return next((i for i,o in enumerate(v) if o != 0))
+            ans = next(((i,o) for i,o in enumerate(v) if o != 0))
+        if return_val:
+            return ans
+        else:
+            return ans[0]
     except StopIteration:
-        return Infinity
+        if return_val:
+            return Infinty, None
+        else:
+            return Infinity
 
 def is_echelon(E,prec=None):
     r'''
@@ -114,7 +121,7 @@ def is_echelon(E,prec=None):
         old_index = new_index
     return True
 
-def solve_xAb_echelon(A,b, p=None, prec=None, check=True):
+def solve_xAb_echelon(A,b, p=None, prec=None, check=False):
     r'''
 
     TESTS::
@@ -143,22 +150,22 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=True):
         raise ValueError("Not in echelon form")
     hnew = try_lift(b.parent()(b))
     ell = A.nrows()
-    alphas = vector(QQ,ell)
     A = try_lift(A)
+    col_list = []
     for j in range(ell):
         ej = A.row(j)
-        ejleadpos = first_nonzero_pos(ej)
-        alphas[j] = hnew[ejleadpos] / ej[ejleadpos]
-        hnew -= alphas[j] * ej
+        ejleadpos, val = first_nonzero_pos(ej,return_val=True)
+        newcol = [hnew[i,ejleadpos] / val for i in range(hnew.nrows())]
+        hnew -= Matrix(QQ, hnew.nrows(),1, newcol) * Matrix(ej.parent().base_ring(),1,len(ej),ej.list())
+        col_list.append(newcol)
+
+    alphas = Matrix(QQ,ell,hnew.nrows(),col_list).transpose()
     if check and p > 0:
         # print 'Check with p = %s'%p
         err = min([o.valuation(p) for o in (alphas * try_lift(A) - try_lift(b)).list()])
         if err < 5:
             raise RuntimeError("System appears not to be solvable. Minimal valuation is %s"%err)
     return alphas
-
-def solve_XAB_echelon(A,B,p=None,prec=None):
-    return Matrix([solve_xAb_echelon(A, rw, p, prec) for rw in B.rows()])
 
 def sorted_roots(R, f, p = None):
     H = PolynomialRing(R, names='x')
@@ -263,7 +270,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
     qqT = try_lift(qq(T))
     qq_aell = qq.subs({x:R(aell)})
     ord_basis_small = try_lift(ord_basis.submatrix(0,0,ncols=len(hord)))
-    hord_in_katz = solve_xAb_echelon(ord_basis_small, hord)
+    hord_in_katz = qexp_to_basis(hord, ord_basis_small)
     qT_hord_in_katz = hord_in_katz * qqT
     qT_hord = qT_hord_in_katz * try_lift(ord_basis)
     return ell, (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
@@ -294,7 +301,6 @@ def find_Apow_and_ord_two_stage(A, E, p, prec):
     Apow = take_power(A, r-1)
     Ar = multiply_and_reduce(Apow, A)
     Ar = my_ech_form(Ar,p) # In place!
-    Ar.change_ring(Qp(p,prec))
     ord_basis = []
     for o in Ar.rows():
         if o.is_zero():
@@ -306,7 +312,8 @@ def find_Apow_and_ord_two_stage(A, E, p, prec):
 
 def qexp_to_basis(f, E, p=None):
     ncols = len(list(f))
-    return solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),f,p)
+    fmat = Matrix(f.parent().base_ring(),1,len(f), f.list())
+    return vector(solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),fmat,p).list())
 
 def katz_to_qexp(fvec, E):
     return fvec * E
@@ -330,11 +337,16 @@ def my_convolution(f,g):
         return ans
 
 def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
+    ord_basis, Upa_katz_exp, Upb_on_ord = Apow_data
+
+    ord_basis = try_lift(ord_basis)
+    Upa_katz_exp = try_lift(Upa_katz_exp)
+    Upb_on_ord = try_lift(Upb_on_ord)
     E = try_lift(E)
+
     UpH = vector([H(p * n) for n in range(elldash)])
     for i in range(nu):
         UpH = vector([UpH[p * n]for n in range(elldash)])
-    UpH = try_lift(UpH)
     ap = ZZ(1)
     if p == 3:
         ap = ZZ(3)
@@ -343,15 +355,15 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
     loss = ZZ((nu * (ap - 1) / (p+1) ).floor()+1)
     ploss = p**loss
     new_UpH = [ ploss * o for o in UpH ]
-    UpH = UpH.parent()(new_UpH)
+    UpH = UpH.parent()(new_UpH) # DEBUG
 
-    ord_basis, Upa_katz_exp, Upb_on_ord = Apow_data
+
     UpH_katz = qexp_to_basis(UpH, E, p)
-    UpH_katz_exp_a = try_lift(UpH_katz) * try_lift(Upa_katz_exp)
+    UpH_katz_exp_a = UpH_katz * Upa_katz_exp
     UpH_a = katz_to_qexp(UpH_katz_exp_a, E)
-    UpH_a_ord = qexp_to_basis(UpH_a, try_lift(ord_basis),p)
-    Hord_vec = UpH_a_ord * try_lift(Upb_on_ord)
-    return (ploss**-1 * (Hord_vec * try_lift(ord_basis)))
+    UpH_a_ord = qexp_to_basis(UpH_a, ord_basis,p)
+    Hord_vec = UpH_a_ord * Upb_on_ord
+    return (ploss**-1 * (Hord_vec * ord_basis))
 
 def compute_ordinary_projection_two_stage(H, Apow_data, E, elldash,p):
     UpH = vector([H(p * n) for n in range(elldash)])
@@ -386,7 +398,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
                 M[i, j] += R(llpow_eps) * b[j // ll]
     small_mat = ord_basis.submatrix(0,0,ncols = M.ncols())
     assert is_echelon(small_mat)
-    return solve_XAB_echelon(small_mat,M,p, prec)
+    return solve_xAb_echelon(small_mat,M,p, prec)
 
 def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=2):
     if magma_args is None:
@@ -487,7 +499,6 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
     Hord = Hord.change_ring(Apow_data[0].parent().base_ring())
 
     print("Step 4: Project onto f-component")
-    # R = Qp(p,prec)
     if orthogonal_form is None:
         ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps)
         n = 1
