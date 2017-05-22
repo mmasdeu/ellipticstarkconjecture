@@ -1023,59 +1023,54 @@ def sage_character_to_magma(chi,magma=None):
                 return chim
     raise RuntimeError("Should not get to this point")
 
-def test_formula_display45(Lp, p, E, K, remove_numpoints = False, outfile=None):
+def test_formula_display45(Lp, p, E, K, outfile=None):
     from sage.arith.misc import algdep
     prec = Lp.parent().precision_cap() + 100
     QQp = Qp(p,prec)
     hK = K.class_number()
     EFp = p+1 - E.ap(p)
     phi = K.hom([K.gen().minpoly().roots(QQp)[0][0]])
-    u = phi((K.ideal(p).factor()[0][0]**hK).gens_reduced()[0])
+    ualg = (K.ideal(p).factor()[0][0]**hK).gens_reduced()[0]
+    u = phi(ualg)
     if u.valuation() == 0:
-        u = phi((K.ideal(p).factor()[1][0]**hK).gens_reduced()[0])
+        ualg = (K.ideal(p).factor()[1][0]**hK).gens_reduced()[0]
+        u = phi(ualg)
     assert u.valuation() > 0
     ulog = u.log(0)
 
-
     PH = E.heegner_point(K.discriminant())
-    PH = PH.point_exact(200) # Hard-coded, DEBUG
+    PH = PH.point_exact(2000) # Hard-coded, DEBUG
     H = PH[0].parent()
     try:
         H1, H_to_H1, K_to_H1, _  = H.composite_fields(K,both_maps = True)[0]
+        Hrel = H1.relativize(K_to_H1,'b')
     except AttributeError:
         H1, H_to_H1, K_to_H1 = K, lambda x:x, lambda x:x
-    kgen = K_to_H1(K.gen())
-    sigmas = [o for o in H1.automorphisms() if o(kgen) == kgen]
+        Hrel = K
+    Kgen = K.gen(0)
+    sigmas = [sigma for sigma in Hrel.automorphisms() if sigma(Kgen) == Kgen]
     EH1 = E.change_ring(H1)
+    EHrel = E.change_ring(Hrel)
     EK = E.change_ring(K)
-    PK = EH1(0)
+    PK = EHrel(0)
     for sigma in sigmas:
-        PK += EH1(sigma(H_to_H1(PH[0])),sigma(H_to_H1(PH[1])))
+        PK += EHrel([Hrel(sigma(H_to_H1(PH[0]))),Hrel(sigma(H_to_H1(PH[1])))])
 
     PK = EK(K(PK[0]),K(PK[1]))
-    nn = 1
-    while True:
-        nPK = nn * PK
-        PKpn = E.change_ring(QQp)((phi(nPK[0]),phi(nPK[1])))
-        try:
-            tvar = -phi(nPK[0]/nPK[1])
-            logPK = E.change_ring(QQp).formal_group().log(prec)(tvar) / nn
-            break
-        except (ZeroDivisionError,ValueError):
-            nn+=1
-            print 'nn=',nn
-    assert PK.order() == Infinity
+    nPK = EFp * PK
+    tvar = -phi(nPK[0]/nPK[1])
+    logPK = E.change_ring(QQp).formal_group().log(prec)(tvar) / EFp
+    # assert PK.order() == Infinity
 
     fwrite("------------------------------------", outfile)
     fwrite("p = %s, cond(E) = %s, disc(K) = %s"%(p,E.conductor(),K.discriminant()), outfile)
     fwrite("------------------------------------", outfile)
     fwrite("h_K = %s"%hK, outfile)
     fwrite("# E(F_p) = %s"%EFp, outfile)
-    if remove_numpoints:
-        EFp = 1
-        fwrite("  (not taking them into account)", outfile)
+    fwrite("u satisfies: %s"%ualg.minpoly(), outfile)
+    fwrite("ulog = %s"%ulog, outfile)
     fwrite("PK = %s"%PK, outfile)
-
+    fwrite("logPK = %s"%logPK, outfile)
     ratio = Lp / ( (EFp**2 * logPK**2 ) / (p * (p-1) * hK * ulog) )
     fwrite("ratio = %s"%ratio, outfile)
     fwrite("ratio ~ %s"%algdep(ratio, 1).roots(QQ)[0][0], outfile)
