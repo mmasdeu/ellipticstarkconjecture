@@ -345,9 +345,12 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
     Upb_on_ord = try_lift(Upb_on_ord)
     E = try_lift(E)
 
-    UpH = vector([H(p * n) for n in range(elldash)])
+    print 'nu = %s'%nu
+    print 'elldash = %s'%elldash
+    print 'Need coefficients of H up to q^(%s)'%(elldash * p**nu)
+    UpH = vector([H(p * n) for n in range(elldash * p**nu)])
     for i in range(nu):
-        UpH = vector([UpH[p * n]for n in range(elldash)])
+        UpH = vector([UpH[p * n]for n in range(elldash * p**(nu-i-1))])
     ap = ZZ(1)
     if p == 3:
         ap = ZZ(3)
@@ -490,7 +493,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         remove(tmp_filename)
 
     print("Step 2: p-depletion, Coleman primitive, and multiply")
-    H = depletion_coleman_multiply(g, h, p, p * elldash, t=0)
+    H = depletion_coleman_multiply(g, h, p, p**(nu+1) * elldash, t=0)
 
     print("Step 3a: Compute ordinary projection")
 
