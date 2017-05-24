@@ -157,10 +157,10 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=False):
         ej = A.row(j)
         ejleadpos, val = first_nonzero_pos(ej,return_val=True)
         newcol = [hnew[i,ejleadpos] / val for i in range(hnew.nrows())]
-        hnew -= Matrix(QQ, hnew.nrows(),1, newcol) * Matrix(ej.parent().base_ring(),1,len(ej),ej.list())
+        hnew -= Matrix(hnew.parent().base_ring(), hnew.nrows(),1, newcol) * Matrix(ej.parent().base_ring(),1,len(ej),ej.list())
         col_list.append(newcol)
 
-    alphas = Matrix(QQ,ell,hnew.nrows(),col_list).transpose()
+    alphas = Matrix(R,ell,hnew.nrows(),col_list).transpose()
     if check and p > 0:
         # print 'Check with p = %s'%p
         err = min([o.valuation(p) for o in (alphas * try_lift(A) - try_lift(b)).list()])
@@ -238,11 +238,18 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
         else:
             ans.append(QQ(g.coefficients([n])[0]) / QQ(n)**ZZ(1+t))
     assert len(ans) == prec
-    def conv(M):
-        return sum((ans[i] * hn[M-i] for i in xrange(M+1)))
-    return conv
+    class conv(SageObject):
+        def __init__(self,A,B):
+            self.A = A
+            self.B = B
+        def __getitem__(self,M):
+            return sum((self.A[i] * self.B[M-i] for i in xrange(M+1)))
+        def __repr__(self):
+            return "Convolution object"
 
-def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1):
+    return conv(ans,hn)
+
+def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1, p = None):
     ell = 1
     level = ZZ(level)
     R = hord.parent().base_ring()
@@ -257,19 +264,19 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
         pp = T.charpoly().change_ring(hord.parent().base_ring())
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
         x = pp.parent().gen()
-        this_is_zero = pp.subs({x:R(aell)})
-        if this_is_zero.valuation() < 8: # DEBUG this value is arbitrary...
-            verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation()))
-        if pp.derivative(derivative_order).subs({x:R(aell)}).valuation() >= 8: # DEBUG this value is arbitrary...
-            verbose('pp.derivative(derivative_order).subs({x:R(aell)}) = %s'%pp.derivative().subs({x:R(aell)}))
+        this_is_zero = pp.subs(R(aell))
+        if this_is_zero.valuation(p) < 8: # DEBUG this value is arbitrary...
+            verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
+        if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= 8: # DEBUG this value is arbitrary...
+            verbose('pp.derivative(derivative_order).subs(R(aell)) = %s'%pp.derivative().subs(R(aell)))
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
             continue
         qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
         break
 
-    qq = qq.parent()([o.lift() for o in qq.list()])
+    # qq = qq.parent()([o.lift() for o in qq.list()])
     qqT = try_lift(qq(T))
-    qq_aell = qq.subs({x:R(aell)})
+    qq_aell = qq.subs(R(aell))
     ord_basis_small = try_lift(ord_basis.submatrix(0,0,ncols=len(hord)))
     hord_in_katz = qexp_to_basis(hord, ord_basis_small)
     qT_hord_in_katz = hord_in_katz * qqT
@@ -299,6 +306,7 @@ def find_Apow_and_ord_three_stage(A, E, p, prec):
 def find_Apow_and_ord_two_stage(A, E, p, prec):
     f_degree = A.change_ring(GF(p)).charpoly().splitting_field(names='a').degree()
     r = (p**f_degree - 1) * p**prec
+    A = A.change_ring(ZpCA(p,prec))
     Apow = take_power(A, r-1)
     Ar = multiply_and_reduce(Apow, A)
     Ar = my_ech_form(Ar,p) # In place!
@@ -345,10 +353,7 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
     Upb_on_ord = try_lift(Upb_on_ord)
     E = try_lift(E)
 
-    print 'nu = %s'%nu
-    print 'elldash = %s'%elldash
-    print 'Need coefficients of H up to q^(%s)'%(elldash * p**nu)
-    UpH = vector([H(p * n) for n in range(elldash * p**nu)])
+    UpH = vector([H[p * n] for n in range(elldash * p**nu)])
     for i in range(nu):
         UpH = vector([UpH[p * n]for n in range(elldash * p**(nu-i-1))])
     ap = ZZ(1)
@@ -359,7 +364,7 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
     loss = ZZ((nu * (ap - 1) / (p+1) ).floor()+1)
     ploss = p**loss
     new_UpH = [ ploss * o for o in UpH ]
-    UpH = UpH.parent()(new_UpH) # DEBUG
+    UpH = UpH.parent()(new_UpH)
 
 
     UpH_katz = qexp_to_basis(UpH, E, p)
@@ -370,7 +375,7 @@ def compute_ordinary_projection_three_stage(H, Apow_data, E, elldash,p,nu=0):
     return (ploss**-1 * (Hord_vec * ord_basis))
 
 def compute_ordinary_projection_two_stage(H, Apow_data, E, elldash,p):
-    UpH = vector([H(p * n) for n in range(elldash)])
+    UpH = vector([H[p * n] for n in range(elldash)])
     Emat = try_lift(E).submatrix(0,0,ncols=elldash)
     Apow = Apow_data[0]
     alphas = qexp_to_basis(UpH, Emat,p)
@@ -442,7 +447,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
     except IOError:
         if force_computation or not os.path.exists(tmp_filename):
             if eps is not None:
-                eps_magma = sage_character_to_magma(eps,magma=magma)
+                eps_magma = sage_character_to_magma(eps,N,magma=magma)
                 Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, eps_magma, kk, prec,nvals=5)
             else:
                 Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,nvals=5)
@@ -501,7 +506,8 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         Hord = compute_ordinary_projection_two_stage(H, Apow_data, eimat, elldash,p)
     else:
         Hord = compute_ordinary_projection_three_stage(H, [ord_basis] + Apow_data, eimat, elldash,p,nu)
-    Hord = Hord.change_ring(Apow_data[0].parent().base_ring())
+    print 'Changing Hord to ring %s'%g[1].parent()
+    Hord = Hord.change_ring(h[1].parent())
 
     print("Step 4: Project onto f-component")
     if lauders_advice == True:
@@ -515,13 +521,13 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         print "Done"
 
     elif orthogonal_form is None:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
         n = 1
         while f[n] == 0:
             n += 1
         Lpa =  piHord[n] / f[n]
     else:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
         gplus, gminus = f, orthogonal_form
         l1 = 2
         while N*p*ell % l1 == 0 or gplus[l1] == 0:
@@ -1009,11 +1015,15 @@ class ModFormqExp(SageObject):
     def character(self):
         return self._character
 
-def sage_character_to_magma(chi,magma=None):
+def sage_character_to_magma(chi,N=None,magma=None):
     if magma is None:
         magma = sage.interfaces.magma
+    if N is None:
+        N = chi.modulus()
+    else:
+        N = ZZ(N)
+        chi = chi.extend(N)
     G = chi.parent()
-    N = chi.modulus()
     order = chi.order()
     gens = G.unit_gens()
     ElGm = magma.DirichletGroupFull(N)
@@ -1026,30 +1036,28 @@ def sage_character_to_magma(chi,magma=None):
                 return chim
     raise RuntimeError("Should not get to this point")
 
-def test_formula_display45(Lp, p, E, K, outfile=None):
-    from sage.arith.misc import algdep
-    prec = Lp.parent().precision_cap() + 100
+def log_of_heegner_point(E,K,p,prec):
     QQp = Qp(p,prec)
-    hK = K.class_number()
-    EFp = p+1 - E.ap(p)
-    phi = K.hom([K.gen().minpoly().roots(QQp)[0][0]])
-    ualg = (K.ideal(p).factor()[0][0]**hK).gens_reduced()[0]
-    u = phi(ualg)
-    if u.valuation() == 0:
-        ualg = (K.ideal(p).factor()[1][0]**hK).gens_reduced()[0]
-        u = phi(ualg)
-    assert u.valuation() > 0
-    ulog = u.log(0)
-
+    try:
+        phi = K.hom([K.gen().minpoly().roots(QQp)[0][0]])
+        Kp = QQp
+    except IndexError:
+        Kp = QQp.extension(K.gen().minpoly(),names=str(K.gen())+'_p')
+        ap = Kp.gen()
+        phi = K.hom([ap])
     PH = E.heegner_point(K.discriminant())
     PH = PH.point_exact(2000) # Hard-coded, DEBUG
     H = PH[0].parent()
     try:
         H1, H_to_H1, K_to_H1, _  = H.composite_fields(K,both_maps = True)[0]
         Hrel = H1.relativize(K_to_H1,'b')
+        def tr(x):
+            return x.trace(K) / Hrel.relative_degree()
     except AttributeError:
         H1, H_to_H1, K_to_H1 = K, lambda x:x, lambda x:x
         Hrel = K
+        def tr(x):
+            return x
     Kgen = K.gen(0)
     sigmas = [sigma for sigma in Hrel.automorphisms() if sigma(Kgen) == Kgen]
     EH1 = E.change_ring(H1)
@@ -1059,11 +1067,40 @@ def test_formula_display45(Lp, p, E, K, outfile=None):
     for sigma in sigmas:
         PK += EHrel([Hrel(sigma(H_to_H1(PH[0]))),Hrel(sigma(H_to_H1(PH[1])))])
 
-    PK = EK(K(PK[0]),K(PK[1]))
-    nPK = EFp * PK
+    EFp = (p**Kp.degree()+1-E.ap(p))
+    PK = EK([tr(PK[0]),tr(PK[1])])
+    n = 1
+    nPK = PK
+    while not (phi(nPK[0]).valuation() < 0 and phi(nPK[1]).valuation() < 0):
+        n += 1
+        nPK += PK
     tvar = -phi(nPK[0]/nPK[1])
-    logPK = E.change_ring(QQp).formal_group().log(prec)(tvar) / EFp
-    # assert PK.order() == Infinity
+    logPK = E.change_ring(Kp).formal_group().log(prec)(tvar) / n
+    return logPK
+
+def get_ulog(ualg, K, p, prec):
+    QQp = Qp(p,prec)
+    K = ualg.parent()
+    try:
+        phi = K.hom([K.gen().minpoly().roots(QQp)[0][0]])
+        Kp = QQp
+    except IndexError:
+        Kp = QQp.extension(K.gen().minpoly(),names=str(K.gen())+'_p')
+        ap = Kp.gen()
+        phi = K.hom([ap])
+    return phi(ualg).log(p_branch = 0)
+
+def test_formula_display45(Lp, p, E, K, outfile=None):
+    from sage.arith.misc import algdep
+    prec = Lp.parent().precision_cap() + 100
+    QQp = Qp(p,prec)
+    hK = K.class_number()
+    EFp = p+1 - E.ap(p)
+    phi = K.hom([K.gen().minpoly().roots(QQp)[0][0]])
+    ualg = (K.ideal(p).factor()[0][0]**hK).gens_reduced()[0]
+
+    ulog = get_ulog(ualg, K, p, prec)
+    logPK = log_of_heegner_point(E,K)
 
     fwrite("------------------------------------", outfile)
     fwrite("p = %s, cond(E) = %s, disc(K) = %s"%(p,E.conductor(),K.discriminant()), outfile)
@@ -1107,3 +1144,4 @@ def fwrite(string, outfile,newline = True):
             else:
                 fout.write(string)
         return
+
