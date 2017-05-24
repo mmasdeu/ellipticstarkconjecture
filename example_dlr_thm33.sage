@@ -55,6 +55,6 @@ for p, N in admissible_pairs:
 
     set_verbose(1)
     Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, N,modformsring=False, weightbound=6,eps=kronecker_character(-N),lauders_advice=True,derivative_order=3)
-    ratio = test_formula_display45(Lp, p, E, K, remove_numpoints = False)
+    ratio = test_formula_display45(Lp, p, E, K)
     print p, N, ratio
 
