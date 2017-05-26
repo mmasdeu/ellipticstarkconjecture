@@ -409,7 +409,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=2, lauders_advice = False):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
@@ -427,7 +427,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
     else:
         N = ZZ(N)
         nu = N.valuation(p)
-    print("Tame level N = %s, prime p = %s"%(N,p))
+    print("Tame level N = %s, prime p = %s, nu = %s"%(N,p,nu))
     prec = ZZ(prec)
 
     print("Step 1: Compute the Up matrix")
