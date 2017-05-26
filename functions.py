@@ -283,7 +283,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
     qT_hord = qT_hord_in_katz * try_lift(ord_basis)
     return ell, (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
 
-def find_Apow_and_ord_three_stage(A, E, p, prec):
+def find_Apow_and_ord_three_stage(A, E, p, prec, nu=0):
     R = ZpCA(p,prec)
     s0inv = QQ(2)
     first_power = QQ(prec * s0inv).ceil()
@@ -300,14 +300,14 @@ def find_Apow_and_ord_three_stage(A, E, p, prec):
     Up_on_ord = hecke_matrix_on_ord(p, ord_basis, None, level = p).change_ring(R)
     f_degree = try_lift(Up_on_ord).change_ring(GF(p)).charpoly().splitting_field(names='a').degree()
     r = (p**f_degree - 1) * p**prec
-    Upb_on_ord = take_power(Up_on_ord, r - first_power - 1)
+    Upb_on_ord = take_power(Up_on_ord, r - first_power - 1 - nu)
     return ord_basis, Upa, Upb_on_ord
 
-def find_Apow_and_ord_two_stage(A, E, p, prec):
+def find_Apow_and_ord_two_stage(A, E, p, prec, nu=0):
     f_degree = A.change_ring(GF(p)).charpoly().splitting_field(names='a').degree()
     r = (p**f_degree - 1) * p**prec
     A = A.change_ring(ZpCA(p,prec))
-    Apow = take_power(A, r-1)
+    Apow = take_power(A, r - 1 -nu)
     Ar = multiply_and_reduce(Apow, A)
     Ar = my_ech_form(Ar,p) # In place!
     ord_basis = []
@@ -432,9 +432,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
 
     print("Step 1: Compute the Up matrix")
     if algorithm == "twostage":
-        computation_name = '%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char',algorithm)
+        computation_name = '%s_%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char',algorithm)
     else:
-        computation_name = '%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char')
+        computation_name = '%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char')
     tmp_filename = '/tmp/magma_mtx_%s.tmp'%computation_name
     import os.path
     from sage.misc.persist import db, db_save
