@@ -432,9 +432,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
 
     print("Step 1: Compute the Up matrix")
     if algorithm == "twostage":
-        computation_name = '%s_%s_%s_%s_%s_%s'%(p,N,kk,prec,'triv' if eps is None else 'char',algorithm)
+        computation_name = '%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char',algorithm)
     else:
-        computation_name = '%s_%s_%s_%s_%s'%(p,N,kk,prec,'triv' if eps is None else 'char')
+        computation_name = '%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char')
     tmp_filename = '/tmp/magma_mtx_%s.tmp'%computation_name
     import os.path
     from sage.misc.persist import db, db_save
