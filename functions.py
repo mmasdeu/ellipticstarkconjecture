@@ -244,15 +244,23 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
             self.B = B
         def __getitem__(self,M):
             return sum((self.A[i] * self.B[M-i] for i in xrange(M+1)))
+        def __len__(self):
+            return min(len(self.A),len(self.B))
         def __repr__(self):
             return "Convolution object"
-
+        def base_ring(self):
+            try:
+                return self.A[1].base_ring()
+            except AttributeError:
+                return self.B[1].base_ring()
+        def list(self):
+            return [self[i] for i in range(len(self))]
     return conv(ans,hn)
 
 def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1, p = None):
     ell = 1
     level = ZZ(level)
-    R = hord.parent().base_ring()
+    R = hord[1].parent()
     while True:
         ell = next_prime(ell)
         if level % ell == 0:
@@ -261,7 +269,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
         T = hecke_matrix_on_ord(ell, ord_basis, weight, level, epstwist)
         aell = gamma[ell] / gamma[1]
         verbose('a_ell = %s'%aell)
-        pp = T.charpoly().change_ring(hord.parent().base_ring())
+        pp = T.charpoly().change_ring(R)
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
         x = pp.parent().gen()
         this_is_zero = pp.subs(R(aell))
@@ -321,7 +329,14 @@ def find_Apow_and_ord_two_stage(A, E, p, prec, nu=0):
 
 def qexp_to_basis(f, E, p=None):
     ncols = len(list(f))
-    fmat = Matrix(f.parent().base_ring(),1,len(f), f.list())
+    try:
+        R = f.parent().base_ring()
+    except (AttributeError,TypeError):
+        R = E.parent().base_ring()
+    try:
+        fmat = Matrix(R,1,len(f), f.list())
+    except AttributeError:
+        fmat = Matrix(R,1,len(f), f)
     return vector(solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),fmat,p).list())
 
 def katz_to_qexp(fvec, E):

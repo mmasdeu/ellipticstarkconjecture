@@ -74,7 +74,7 @@ set_verbose(1)
 import functions
 reload(functions)
 from functions import *
-Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, 83,modformsring=False, weightbound=6,eps=kronecker_character(-83),orthogonal_form=gammaminus,algorithm='threestage',force_computation=False)
+Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, 83,modformsring=False, weightbound=6,eps=kronecker_character(-83),orthogonal_form=gammaminus, derivative_order=2, algorithm='threestage',force_computation=False)
 print Lp / Lp1good
 
 g1qexp = sage_character_to_magma(kronecker_character(-83),magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(M).Eltseq().sage()
