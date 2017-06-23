@@ -494,7 +494,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         with open(tmp_filename,'r') as fmagma:
             A = sage_eval(fmagma.readline(),preparse=False)
             eimat = sage_eval(fmagma.readline(),preparse=False)
-            zetapm = sage_eval(fmagma.readline())
+            zetapm= sage_eval(fmagma.readline())
             elldash = sage_eval(fmagma.readline())
             mdash = sage_eval(fmagma.readline())
 
