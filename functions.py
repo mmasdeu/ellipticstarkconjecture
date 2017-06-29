@@ -424,7 +424,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
@@ -463,9 +463,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = 6, eps = N
         if force_computation or not os.path.exists(tmp_filename):
             if eps is not None:
                 eps_magma = sage_character_to_magma(eps,N,magma=magma)
-                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, eps_magma, kk, prec,nvals=5)
+                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, eps_magma, kk, prec,WeightBound=weightbound,nvals=5)
             else:
-                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,nvals=5)
+                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,WeightBound=weightbound,nvals=5)
             print(" ..Converting to Sage...")
             Amodulus = Am[1,1].Parent().Modulus().sage()
             Aprec = Amodulus.valuation(p)

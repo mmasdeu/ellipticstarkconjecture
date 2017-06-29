@@ -67,4 +67,4 @@ import functions
 reload(functions)
 from functions import *
 
-Lp, ell = Lpvalue(g0, f0, h0, p, prec, 40,modformsring=True, weightbound=2, derivative_order=1, eps = kronecker_character(-20))
+Lp, ell = Lpvalue(g0, f0, h0, p, prec, 80,modformsring=False, weightbound=True, derivative_order=3, eps = kronecker_character(-20))

@@ -4,7 +4,7 @@ reload(functions)
 from functions import *
 from util import *
 p = 13
-prec = 10
+prec = 5
 QQp = Qp(p,prec)
 f0 = EllipticCurve('26a1').modular_form()
 
@@ -67,4 +67,4 @@ import functions
 reload(functions)
 from functions import *
 
-Lp, ell = Lpvalue(g0, f0, h0, p, prec, 208,modformsring=True, weightbound=2, derivative_order=1, eps = kronecker_character(-52))
+Lp, ell = Lpvalue(g0, f0, h0, p, prec, 208,modformsring=False, weightbound=True, derivative_order=2, eps = kronecker_character(-52))
