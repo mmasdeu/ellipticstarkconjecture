@@ -581,9 +581,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         while True:
             try:
                 ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+                break
             except RuntimeError:
                 derivative_order += 1
-            break
         n = 1
         while f[n] == 0:
             n += 1
@@ -596,9 +596,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         while True:
             try:
                 ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+                break
             except RuntimeError:
                 derivative_order += 1
-            break
         n = 1
         while f[n] == 0:
             n += 1
@@ -607,9 +607,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         while True:
             try:
                 ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+                break
             except RuntimeError:
                 derivative_order += 1
-            break
         gplus, gminus = f, orthogonal_form
         l1 = 2
         while N*p*ell % l1 == 0 or gplus[l1] == 0:
