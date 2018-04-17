@@ -465,6 +465,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         nu = N.valuation(p)
     if outfile is None:
         outfile = "output_iterated_integral_%s_%s_%s.txt"%(g.level(), h.level(), prec)
+    print("Writing output to file %s"%outfile)
     fwrite("######### STARTING COMPUTATION OF Lp ###########", outfile)
 
     if elliptic_curve is not None:
