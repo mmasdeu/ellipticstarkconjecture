@@ -589,7 +589,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
             n += 1
         Lpa =  piHord[n] / f[n]
         fwrite("Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)", outfile)
-        fwrite([(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)], outfile)
+        fwrite(str([(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)]), outfile)
         fwrite("Done", outfile)
 
     elif orthogonal_form is None:
