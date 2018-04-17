@@ -276,10 +276,13 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
         verbose('a_ell = %s'%aell)
         pp = T.charpoly().change_ring(R)
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
+        if pp.degree() <= derivative_order:
+            raise ValueError("The derivative_order (= %s) is too high."%derivative_order)
         x = pp.parent().gen()
         this_is_zero = pp.subs(R(aell))
         if this_is_zero.valuation(p) < 4: # DEBUG this value is arbitrary...
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
+
         if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= prec - 2: # DEBUG this value is arbitrary...
             verbose('pp.derivative(derivative_order).subs(R(aell)) = %s'%pp.derivative().subs(R(aell)))
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
@@ -585,6 +588,10 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 break
             except RuntimeError:
                 derivative_order += 1
+            except ValueError:
+                fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
+                fwrite("Seems too high...", outfile)
+                fwrite("######################################")
         n = 1
         while f[n] == 0:
             n += 1
