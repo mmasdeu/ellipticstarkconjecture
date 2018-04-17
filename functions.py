@@ -441,7 +441,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         raise ValueError('Algorithm should be one of "twostage" (default) or "threestage"')
     from sage.interfaces.magma import Magma
     magma = Magma(**magma_args)
-    if hasattr(g,j_invariant):
+    if hasattr(g,'j_invariant'):
         elliptic_curve = g
         g = g.modular_form()
     else:
@@ -449,7 +449,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if h is None:
         # Assume we need to create f and h from Dirichlet character
         kronecker_character = f
-        f, _, h = define_qexpansions_from_dirichlet_character(p, eps, num_coeffs_qexpansion, magma)
+        f, _, h = define_qexpansions_from_dirichlet_character(p, prec, eps, num_coeffs_qexpansion, magma)
     else:
         kronecker_character = None
     ll,mm = g.weight(),h.weight()
@@ -468,10 +468,10 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     fwrite("######### STARTING COMPUTATION OF Lp ###########", outfile)
 
     if elliptic_curve is not None:
-        fwrite("E = EllipticCurve(%s)"%list(E.ainvs()), outfile)
-        fwrite("  cond(E) = %s"%E.conductor(), outfile)
+        fwrite("E = EllipticCurve(%s)"%list(elliptic_curve.ainvs()), outfile)
+        fwrite("  cond(E) = %s"%elliptic_curve.conductor(), outfile)
     if kronecker_character is not None:
-        fwrite("kronecker_character = %s"%kronecker_character)
+        fwrite("kronecker_character = %s"%kronecker_character, outfile)
         fwrite("  conductor = %s"%kronecker_character.conductor(), outfile)
     fwrite("Tame level N = %s, prime p = %s, nu = %s"%(N,p,nu), outfile)
     fwrite("precision = %s"%prec, outfile)
@@ -1126,7 +1126,7 @@ def sage_character_to_magma(chi,N=None,magma=None):
                 return chim
     raise RuntimeError("Should not get to this point")
 
-def define_qexpansions_from_dirichlet_character(p, eps, num_coefficients, magma):
+def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, magma):
     QQp = Qp(p,prec)
     N = eps.modulus()
     g1qexp = sage_character_to_magma(eps,N=N,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(num_coefficients).Eltseq().sage()
