@@ -157,7 +157,9 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=False):
         ej = A.row(j)
         ejleadpos, val = first_nonzero_pos(ej,return_val=True)
         newcol = [hnew[i,ejleadpos] / val for i in range(hnew.nrows())]
-        hnew -= Matrix(hnew.parent().base_ring(), hnew.nrows(),1, newcol) * Matrix(ej.parent().base_ring(),1,len(ej),ej.list())
+        tmp1 = Matrix(hnew.parent().base_ring(), hnew.nrows(),1, newcol)
+        tmp2 = Matrix(ej.parent().base_ring(),1,len(ej),ej.list())
+        hnew -= tmp1 * tmp2
         col_list.append(newcol)
 
     alphas = Matrix(R,ell,hnew.nrows(),col_list).transpose()
@@ -257,11 +259,14 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
             return [self[i] for i in range(len(self))]
     return conv(ans,hn)
 
-def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1, p = None):
-    ell = 1
+def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1, p = None, max_primes = 10):
+    ell = 2 # DEBUG: we skip 2 to avoid problems, but it used to work.
     level = ZZ(level)
     R = hord[1].parent()
-    while True:
+    prec = R.precision_cap()
+    tested_primes = 0
+    qq = None
+    while tested_primes < max_primes:
         ell = next_prime(ell)
         if level % ell == 0:
             continue
@@ -273,15 +278,18 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist 
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
         x = pp.parent().gen()
         this_is_zero = pp.subs(R(aell))
-        if this_is_zero.valuation(p) < 8: # DEBUG this value is arbitrary...
+        if this_is_zero.valuation(p) < 4: # DEBUG this value is arbitrary...
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
-        if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= 8: # DEBUG this value is arbitrary...
+        if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= prec - 2: # DEBUG this value is arbitrary...
             verbose('pp.derivative(derivative_order).subs(R(aell)) = %s'%pp.derivative().subs(R(aell)))
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
-            continue
-        qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
-        break
+            tested_primes += 1
+        else:
+            qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
+            break
 
+    if qq is None:
+        raise RuntimeError("Reached maximum number of tested primes")
     # qq = qq.parent()([o.lift() for o in qq.list()])
     qqT = try_lift(qq(T))
     qq_aell = qq.subs(R(aell))
@@ -337,6 +345,8 @@ def qexp_to_basis(f, E, p=None):
         fmat = Matrix(R,1,len(f), f.list())
     except AttributeError:
         fmat = Matrix(R,1,len(f), f)
+    verbose('R = %s'%R)
+    verbose('E.parent() = %s'%E.parent())
     return vector(solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),fmat,p).list())
 
 def katz_to_qexp(fvec, E):
@@ -424,13 +434,24 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, num_coeffs_qexpansion = 20000, outfile = None):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
         raise ValueError('Algorithm should be one of "twostage" (default) or "threestage"')
     from sage.interfaces.magma import Magma
     magma = Magma(**magma_args)
+    if hasattr(g,j_invariant):
+        elliptic_curve = g
+        g = g.modular_form()
+    else:
+        elliptic_curve = None
+    if h is None:
+        # Assume we need to create f and h from Dirichlet character
+        kronecker_character = f
+        f, _, h = define_qexpansions_from_dirichlet_character(p, eps, num_coeffs_qexpansion, magma)
+    else:
+        kronecker_character = None
     ll,mm = g.weight(),h.weight()
     t = 0 # Assume t = 0 here
     kk = ll + mm - 2 * (1 + t) # Is this correct?
@@ -442,107 +463,153 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     else:
         N = ZZ(N)
         nu = N.valuation(p)
-    print("Tame level N = %s, prime p = %s, nu = %s"%(N,p,nu))
+    if outfile is None:
+        outfile = "output_iterated_integral_%s_%s_%s.txt"%(g.level(), h.level(), prec)
+    fwrite("######### STARTING COMPUTATION OF Lp ###########", outfile)
+
+    if elliptic_curve is not None:
+        fwrite("E = EllipticCurve(%s)"%list(E.ainvs()), outfile)
+        fwrite("  cond(E) = %s"%E.conductor(), outfile)
+    if kronecker_character is not None:
+        fwrite("kronecker_character = %s"%kronecker_character)
+        fwrite("  conductor = %s"%kronecker_character.conductor(), outfile)
+    fwrite("Tame level N = %s, prime p = %s, nu = %s"%(N,p,nu), outfile)
+    fwrite("precision = %s"%prec, outfile)
+    fwrite("------ parameters --------------------", outfile)
+    fwrite("modformsring = %s"%modformsring, outfile)
+    fwrite("weightbound = %s"%weightbound, outfile)
+    fwrite("eps = %s"%eps, outfile)
+    fwrite("orthogonal_form = %s"%orthogonal_form, outfile)
+    fwrite("magma_args = %s"%magma_args, outfile)
+    fwrite("force_computation = %s"%force_computation, outfile)
+    fwrite("algorithm = %s"%algorithm, outfile)
+    fwrite("derivative_order = %s"%derivative_order, outfile)
+    fwrite("lauders_advice = %s"%lauders_advice, outfile)
+    fwrite("use_magma = %s"%use_magma, outfile)
+    fwrite("num_coeffs_qexpansion = %s"%num_coeffs_qexpansion, outfile)
+    fwrite("##########################################", outfile)
     prec = ZZ(prec)
 
-    print("Step 1: Compute the Up matrix")
+    fwrite("Step 1: Compute the Up matrix", outfile)
     if algorithm == "twostage":
         computation_name = '%s_%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char',algorithm)
     else:
         computation_name = '%s_%s_%s_%s_%s_%s'%(p,N,nu,kk,prec,'triv' if eps is None else 'char')
-    tmp_filename = '/tmp/magma_mtx_%s.tmp'%computation_name
-    import os.path
-    from sage.misc.persist import db, db_save
-    try:
-        if force_computation:
-            raise IOError
-        V = db('Lpvalue_Apow_ordbasis_eimat_%s'%computation_name)
-        ord_basis, eimat, zetapm, elldash, mdash = V[:5]
-        Apow_data = V[5:]
-    except IOError:
-        if force_computation or not os.path.exists(tmp_filename):
-            if eps is not None:
-                eps_magma = sage_character_to_magma(eps,N,magma=magma)
-                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, eps_magma, kk, prec,WeightBound=weightbound,nvals=5)
+    if use_magma:
+        tmp_filename = '/tmp/magma_mtx_%s.tmp'%computation_name
+        import os.path
+        from sage.misc.persist import db, db_save
+        try:
+            if force_computation:
+                raise IOError
+            V = db('Lpvalue_Apow_ordbasis_eimat_%s'%computation_name)
+            ord_basis, eimat, zetapm, elldash, mdash = V[:5]
+            Apow_data = V[5:]
+        except IOError:
+            if force_computation or not os.path.exists(tmp_filename):
+                if eps is not None:
+                    eps_magma = sage_character_to_magma(eps,N,magma=magma)
+                    magma.load("overconvergent_alan.m")
+                    # Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, eps_magma, kk, prec,WeightBound=weightbound,nvals=5)
+                    Am, zetapm, eimatm, elldash, mdash = magma.HigherLevelUpGj(p, kk, prec, weightbound, eps_magma,'"B"',nvals=5)
+                else:
+                    # Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,WeightBound=weightbound,nvals=5)
+                    Am, zetapm, eimatm, elldash, mdash = magma.HigherLevelUpGj(p, kk, prec, weightbound, N,'"B"',nvals=5)
+                fwrite(" ..Converting to Sage...", outfile)
+                Amodulus = Am[1,1].Parent().Modulus().sage()
+                Aprec = Amodulus.valuation(p)
+                Arows = Am.NumberOfRows().sage()
+                Acols = Am.NumberOfColumns().sage()
+                Emodulus = eimatm[1,1].Parent().Modulus().sage()
+                Eprec = Emodulus.valuation(p)
+                Erows = eimatm.NumberOfRows().sage()
+                Ecols = eimatm.NumberOfColumns().sage()
+                magma.eval('F := Open("%s", "w");'%tmp_filename)
+                magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Aprec,Arows,Acols))
+                magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%Am.name())
+                magma.eval('fprintf F, ") \\n"')
+                magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Eprec,Erows, Ecols))
+                magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%eimatm.name())
+                magma.eval('fprintf F, ") \\n"')
+                magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
+                magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
+                magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
+                # magma.eval('delete F;')
+                magma.quit()
+
+            # Read A and eimat from file
+            from sage.structure.sage_object import load
+            from sage.misc.sage_eval import sage_eval
+            with open(tmp_filename,'r') as fmagma:
+                A = sage_eval(fmagma.readline(),preparse=False)
+                eimat = sage_eval(fmagma.readline(),preparse=False)
+                zetapm= sage_eval(fmagma.readline())
+                elldash = sage_eval(fmagma.readline())
+                mdash = sage_eval(fmagma.readline())
+
+            fwrite("Step 3b: Apply Up^(r-1) to H", outfile)
+            if algorithm == 'twostage':
+                V0  = list(find_Apow_and_ord_two_stage(A, eimat, p, prec))
             else:
-                Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,WeightBound=weightbound,nvals=5)
-            print(" ..Converting to Sage...")
-            Amodulus = Am[1,1].Parent().Modulus().sage()
-            Aprec = Amodulus.valuation(p)
-            Arows = Am.NumberOfRows().sage()
-            Acols = Am.NumberOfColumns().sage()
-            Emodulus = eimatm[1,1].Parent().Modulus().sage()
-            Eprec = Emodulus.valuation(p)
-            Erows = eimatm.NumberOfRows().sage()
-            Ecols = eimatm.NumberOfColumns().sage()
-            magma.eval('F := Open("%s", "w");'%tmp_filename)
-            magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Aprec,Arows,Acols))
-            magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%Am.name())
-            magma.eval('fprintf F, ") \\n"')
-            magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Eprec,Erows, Ecols))
-            magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%eimatm.name())
-            magma.eval('fprintf F, ") \\n"')
-            magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
-            magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
-            magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
-            # magma.eval('delete F;')
-            magma.quit()
+                V0 = list(find_Apow_and_ord_three_stage(A,eimat,p,prec))
+            ord_basis = V0[0]
+            Apow_data = V0[1:]
+            V = [ord_basis]
+            V.extend([eimat, zetapm, elldash, mdash])
+            V.extend(Apow_data)
+            db_save(V,'Lpvalue_Apow_ordbasis_eimat_%s'%computation_name)
+            from posix import remove
+            remove(tmp_filename)
 
-        # Read A and eimat from file
-        from sage.structure.sage_object import load
-        from sage.misc.sage_eval import sage_eval
-        with open(tmp_filename,'r') as fmagma:
-            A = sage_eval(fmagma.readline(),preparse=False)
-            eimat = sage_eval(fmagma.readline(),preparse=False)
-            zetapm= sage_eval(fmagma.readline())
-            elldash = sage_eval(fmagma.readline())
-            mdash = sage_eval(fmagma.readline())
+    else:
+        A, eimat, elldash, mdash = UpOperator(p,N,kk,prec, modformsring = False, weightbound = 6)
 
-        print("Step 3b: Apply Up^(r-1) to H")
-        if algorithm == 'twostage':
-            V0  = list(find_Apow_and_ord_two_stage(A, eimat, p, prec))
-        else:
-            V0 = list(find_Apow_and_ord_three_stage(A,eimat,p,prec))
-        ord_basis = V0[0]
-        Apow_data = V0[1:]
-        V = [ord_basis]
-        V.extend([eimat, zetapm, elldash, mdash])
-        V.extend(Apow_data)
-        db_save(V,'Lpvalue_Apow_ordbasis_eimat_%s'%computation_name)
-        from posix import remove
-        remove(tmp_filename)
-
-    print("Step 2: p-depletion, Coleman primitive, and multiply")
+    fwrite("Step 2: p-depletion, Coleman primitive, and multiply", outfile)
     H = depletion_coleman_multiply(g, h, p, p**(nu+1) * elldash, t=0)
 
-    print("Step 3a: Compute ordinary projection")
+    fwrite("Step 3a: Compute ordinary projection", outfile)
 
     if len(Apow_data) == 1:
         Hord = compute_ordinary_projection_two_stage(H, Apow_data, eimat, elldash,p)
     else:
         Hord = compute_ordinary_projection_three_stage(H, [ord_basis] + Apow_data, eimat, elldash,p,nu)
-    print 'Changing Hord to ring %s'%g[1].parent()
+    fwrite('Changing Hord to ring %s'%g[1].parent(), outfile)
     Hord = Hord.change_ring(h[1].parent())
 
-    print("Step 4: Project onto f-component")
+    fwrite("Step 4: Project onto f-component", outfile)
     if lauders_advice == True:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+        while True:
+            try:
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+            except RuntimeError:
+                derivative_order += 1
+            break
         n = 1
         while f[n] == 0:
             n += 1
         Lpa =  piHord[n] / f[n]
-        print "Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)"
-        print [(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)]
-        print "Done"
+        fwrite("Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)", outfile)
+        fwrite([(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)], outfile)
+        fwrite("Done", outfile)
 
     elif orthogonal_form is None:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+        while True:
+            try:
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+            except RuntimeError:
+                derivative_order += 1
+            break
         n = 1
         while f[n] == 0:
             n += 1
         Lpa =  piHord[n] / f[n]
     else:
-        ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+        while True:
+            try:
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+            except RuntimeError:
+                derivative_order += 1
+            break
         gplus, gminus = f, orthogonal_form
         l1 = 2
         while N*p*ell % l1 == 0 or gplus[l1] == 0:
@@ -556,6 +623,10 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         while f[n] == 0:
             n += 1
         Lpa = Lpa / f[n]
+    fwrite("ell = %s"%ell, outfile)
+    fwrite("######### FINISHED COMPUTATION ###########", outfile)
+    fwrite("Lp = %s"%Lpa, outfile)
+    fwrite("##########################################", outfile)
     return Lpa, ell
 
 
@@ -564,7 +635,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
 # the existing functions just need to return more values
 ############################################################
 
-def my_complementary_spaces_modp(N,p,k0,n,elldash,LWBModp,bound):
+def my_complementary_spaces_modp(N,p,k0,n,elldash,LWBModp,bound,outfile=None):
     r"""
     Returns a list of lists of lists of lists ``[j,a]``. The pairs ``[j,a]``
     encode the choice of the `a`-th element in the `j`-th list of the input
@@ -607,8 +678,8 @@ def my_complementary_spaces_modp(N,p,k0,n,elldash,LWBModp,bound):
     ell = dimension_modular_forms(N,k0 + n*(p-1))
     TotalBasisModp = matrix(GF(p),ell,elldash); # zero matrix
 
-    print('n = %s'%n)
-    print('k0 = %s'%k0)
+    fwrite('n = %s'%n, outfile)
+    fwrite('k0 = %s'%k0, outfile)
 
     for i in range(n+1):
         NewBasisCodemi = random_new_basis_modp(N,p,k0 + i*(p-1),LWBModp,TotalBasisModp,elldash,bound)
@@ -778,7 +849,8 @@ def my_ech_form(A,p):
             pivj = argmin(A.column(j).list()[k:], fun = lambda x:x.valuation(p)) + k
             if A[pivj,j] != 0: #.valuation(p) < +Infinity: # else column already reduced
                 A.swap_rows(pivj, k)
-                A.set_row_to_multiple_of_row(k, k, ~S(ZZ(A[k,j].unit_part())))
+                unitpart = ZZ(A[k,j]) / p**A[k,j].valuation(p)
+                A.set_row_to_multiple_of_row(k, k, ~S(unitpart))
                 for i in range(k+1,a):
                     A.add_multiple_of_row(i, k, S(-ZZ(A[i,j])/ZZ(A[k,j])))
                 k = k + 1
@@ -1011,14 +1083,17 @@ def sage_F_ideal_to_magma(F_magma,x,magma):
     return magma.bar_call(Zm,'ideal',[Zm(magma(o)) for o in gens])
 
 class ModFormqExp(SageObject):
-    def __init__(self, v, R = None, weight = 2, character = None):
+    def __init__(self, v, R = None, weight = 2, character = None, level = -1):
         if R is None:
             R = v[0].parent()
         self._qexp = [R(o) for o in v]
         self._weight = ZZ(weight)
+        self._level = ZZ(level)
         self._character = character
     def __getitem__(self, idx):
         return self._qexp[idx]
+    def level(self):
+        return self._level
     def coefficients(self,idx):
         try:
             n = len(idx)
@@ -1050,6 +1125,29 @@ def sage_character_to_magma(chi,N=None,magma=None):
             if this == [K(o) for o in target]:
                 return chim
     raise RuntimeError("Should not get to this point")
+
+def define_qexpansions_from_dirichlet_character(p, eps, num_coefficients, magma):
+    QQp = Qp(p,prec)
+    N = eps.modulus()
+    g1qexp = sage_character_to_magma(eps,N=N,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(num_coefficients).Eltseq().sage()
+
+    den = LCM([QQ(o).denominator() for o in g1qexp])
+    g1qexp = [ZZ(den * o) for o in g1qexp]
+
+    g0 = ModFormqExp(g1qexp, Qp(p,prec), weight=1, character = eps, level = N)
+
+    weight = 1
+    alpha = 1
+
+    qexp_plus = [QQp(o) for o in g1qexp]
+    qexp_minus = [QQp(o) for o in g1qexp]
+    for i in range(len(g1qexp) // p):
+        qexp_plus[p * i] += g1qexp[i]
+        qexp_minus[p * i] -= g1qexp[i]
+
+    gammaplus = ModFormqExp(qexp_plus, Qp(p,prec), weight=1, level = N)
+    gammaminus = ModFormqExp(qexp_minus, Qp(p,prec), weight=1, level = N)
+    return gammaplus, gammaminus, g0
 
 def log_of_heegner_point(E,K,p,prec):
     QQp = Qp(p,prec)
@@ -1115,7 +1213,7 @@ def test_formula_display45(Lp, p, E, K, outfile=None):
     ualg = (K.ideal(p).factor()[0][0]**hK).gens_reduced()[0]
 
     ulog = get_ulog(ualg, K, p, prec)
-    logPK = log_of_heegner_point(E,K)
+    logPK = log_of_heegner_point(E,K,p,prec)
 
     fwrite("------------------------------------", outfile)
     fwrite("p = %s, cond(E) = %s, disc(K) = %s"%(p,E.conductor(),K.discriminant()), outfile)
@@ -1124,7 +1222,6 @@ def test_formula_display45(Lp, p, E, K, outfile=None):
     fwrite("# E(F_p) = %s"%EFp, outfile)
     fwrite("u satisfies: %s"%ualg.minpoly(), outfile)
     fwrite("ulog = %s"%ulog, outfile)
-    fwrite("PK = %s"%PK, outfile)
     fwrite("logPK = %s"%logPK, outfile)
     ratio = Lp / ( (EFp**2 * logPK**2 ) / (p * (p-1) * hK * ulog) )
     fwrite("ratio = %s"%ratio, outfile)
