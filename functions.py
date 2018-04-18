@@ -579,7 +579,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         Hord = compute_ordinary_projection_three_stage(H, [ord_basis] + Apow_data, eimat, elldash,p,nu)
     fwrite('Changing Hord to ring %s'%g[1].parent(), outfile)
     Hord = Hord.change_ring(h[1].parent())
-
+    print [Hord[i] for i in range(30)]
     fwrite("Step 4: Project onto f-component", outfile)
     if lauders_advice == True:
         while True:
@@ -596,6 +596,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         while f[n] == 0:
             n += 1
         Lpa =  piHord[n] / f[n]
+        fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
         fwrite("Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)", outfile)
         fwrite(str([(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)]), outfile)
         fwrite("Done", outfile)
