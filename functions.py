@@ -1138,7 +1138,7 @@ def sage_character_to_magma(chi,N=None,magma=None):
 def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, magma):
     QQp = Qp(p,prec)
     N = eps.modulus()
-    g1qexp = sage_character_to_magma(eps,N=N,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(num_coefficients).Eltseq().sage()
+    g1qexp = sage_character_to_magma(eps,N=N,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(num_coefficients + 20).Eltseq().sage()  # DEBUG
 
     den = LCM([QQ(o).denominator() for o in g1qexp])
     g1qexp = [ZZ(den * o) for o in g1qexp]
