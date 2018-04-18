@@ -1144,7 +1144,7 @@ def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, 
     g1qexp = [ZZ(den * o) for o in g1qexp]
     print len(g1qexp)
 
-    g0 = ModFormqExp(g1qexp, Qp(p,prec), weight=1, character = eps, level = N)
+    g0 = ModFormqExp(g1qexp, QQp, weight=1, character = eps, level = N)
 
     weight = 1
     alpha = 1
@@ -1155,8 +1155,8 @@ def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, 
         qexp_plus[p * i] += g1qexp[i]
         qexp_minus[p * i] -= g1qexp[i]
 
-    gammaplus = ModFormqExp(qexp_plus, Qp(p,prec), weight=1, level = N)
-    gammaminus = ModFormqExp(qexp_minus, Qp(p,prec), weight=1, level = N)
+    gammaplus = ModFormqExp(qexp_plus, QQp, weight=1, level = N)
+    gammaminus = ModFormqExp(qexp_minus, QQp, weight=1, level = N)
     return gammaplus, gammaminus, g0
 
 def log_of_heegner_point(E,K,p,prec):
