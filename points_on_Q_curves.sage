@@ -7,7 +7,7 @@
 F.<g> = QuadraticField(-11) # cos de definicio de la corba
 K.<r>=QuadraticField(-2) # cos quadratic imaginari
 c4 = 1/2*(-75*g-121) # c4 i c6 donats per en Quer
-c6 = -90*g + 1441
+c6 = -90*g + 14414
 E_non_minimal = EllipticCurve([-27*c4,-54*c6]) # conductor 33*OF; aquesta corba es la que dona en Quer, pero resulta que es molt millor (a l'hora de trobar punts algebraics amb magma) utilitzar el model minimal que defineixo mes avall
 
 _.<x> =PolynomialRing(QQ)

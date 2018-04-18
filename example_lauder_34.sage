@@ -14,7 +14,7 @@ f0 = E.modular_form()
 g0 = Newforms(Gamma0(11),names='a')[0]
 
 p = 7
-prec = 30
+prec = 20
 R = Qp(p,prec)
 
 P = E((2,3))
@@ -23,5 +23,5 @@ Plog = P.padic_elliptic_logarithm(p,prec)
 set_verbose(1)
 
 Lpgood = (-1861584104004734313229493 * 7)
-Lp, ell = Lpvalue(g0,f0,g0,p,prec)
+Lp, ell = Lpvalue(g0,f0,g0,p,prec,force_computation=True,use_magma=False)
 print -Lp/Lpgood

@@ -25,8 +25,8 @@ for p in prime_range(5,20):
 
 ###
 set_verbose(1)
-for p, N in admissible_pairs:
-    prec = 20 # Paper uses 70
+for p, N in admissible_pairs[:1]:
+    prec = 10 # Paper uses 70
     QQp = Qp(p,prec)
     E = EllipticCurve(str('%sa1'%N))
     f0 = E.modular_form()
@@ -54,7 +54,7 @@ for p, N in admissible_pairs:
     gammaminus = ModFormqExp(qexp_minus, Qp(p,prec), weight=1)
 
     set_verbose(1)
-    Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, N,modformsring=False, weightbound=6,eps=kronecker_character(-N),lauders_advice=True,derivative_order=3)
+    Lp, ell = Lpvalue(gammaplus, f0, g0, p, prec, N,modformsring=False, weightbound=6,eps=kronecker_character(-N),lauders_advice=True,derivative_order=3,force_computation=True)
     ratio = test_formula_display45(Lp, p, E, K)
     print p, N, ratio
 

@@ -452,7 +452,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if h is None:
         # Assume we need to create f and h from Dirichlet character
         kronecker_character = f
-        f, _, h = define_qexpansions_from_dirichlet_character(p, prec, eps, num_coeffs_qexpansion, magma)
+        f, _, h = define_qexpansions_from_dirichlet_character(p, prec, kronecker_character, num_coeffs_qexpansion, magma)
     else:
         kronecker_character = None
     ll,mm = g.weight(),h.weight()
@@ -1142,6 +1142,7 @@ def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, 
 
     den = LCM([QQ(o).denominator() for o in g1qexp])
     g1qexp = [ZZ(den * o) for o in g1qexp]
+    print len(g1qexp)
 
     g0 = ModFormqExp(g1qexp, Qp(p,prec), weight=1, character = eps, level = N)
 
