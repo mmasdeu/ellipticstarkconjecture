@@ -467,7 +467,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         N = ZZ(N)
         nu = N.valuation(p)
     if outfile is None:
-        outfile = "output_iterated_integral_%s_%s_%s.txt"%(g.level(), h.level(), prec)
+        outfile = "output_iterated_integral_%s_%s_%s_%s.txt"%(p,g.level(), h.level(), prec)
     print("Writing output to file %s"%outfile)
     fwrite("######### STARTING COMPUTATION OF Lp ###########", outfile)
 
@@ -518,6 +518,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                     Am, zetapm, eimatm, elldash, mdash = magma.HigherLevelUpGj(p, kk, prec, weightbound, eps_magma,'"B"',nvals=5)
                 else:
                     # Am, zetapm, eimatm, elldash, mdash = magma.UpOperatorData(p, N, kk, prec,WeightBound=weightbound,nvals=5)
+                    magma.load("overconvergent_alan.m")
                     Am, zetapm, eimatm, elldash, mdash = magma.HigherLevelUpGj(p, kk, prec, weightbound, N,'"B"',nvals=5)
                 fwrite(" ..Converting to Sage...", outfile)
                 Amodulus = Am[1,1].Parent().Modulus().sage()
