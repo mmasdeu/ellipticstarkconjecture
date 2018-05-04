@@ -15,6 +15,7 @@ from sage.structure.sage_object import SageObject
 from sage.interfaces.magma import magma
 from sage.modular.dirichlet import DirichletGroup
 from sage.rings.padics.factory import ZpCA,ZpCR,Qp
+from util import *
 import sys
 
 def argmax(iterable, fun=None):
@@ -259,8 +260,9 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
             return [self[i] for i in range(len(self))]
     return conv(ans,hn)
 
-def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, epstwist = None, derivative_order = 1, p = None, max_primes = 10):
+def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivative_order = 1, p = None, max_primes = 10):
     ell = 2 # DEBUG: we skip 2 to avoid problems, but it used to work.
+    epstwist = gamma.character()
     level = ZZ(level)
     R = hord[1].parent()
     prec = R.precision_cap()
@@ -584,7 +586,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if lauders_advice == True:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -604,7 +606,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     elif orthogonal_form is None:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order, p = p)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -615,7 +617,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     else:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, eps, derivative_order=derivative_order, p = p)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order, p = p)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -1266,4 +1268,49 @@ def fwrite(string, outfile,newline = True):
             else:
                 fout.write(string)
         return
+
+def find_embeddings(M, K):
+    r'''
+    Given a number field M and a p-adic field K,
+    find the embeddings of M into K.
+    '''
+    p = K.prime()
+    zeta = M.gen()
+    f = zeta.minpoly()
+    f *= f.denominator()
+    fp = f.change_ring(GF(p))
+    ans = []
+    for rp,_ in fp.roots():
+        try:
+            ans.append(hensel_lift(f, K(rp.lift()), max_iters = K.precision_cap()))
+        except (ValueError, RuntimeError):
+            pass
+    return [M.hom([o]) for o in ans]
+
+def get_magma_qexpansions(filename, i1, prec, base_ring):
+    magma.load(filename)
+    magma.load("get_qexpansions.m")
+    magma.set('prec',prec)
+    f = 'eigenforms_list[%s][1]'%i1
+    eps_data_f = 'eigenforms_list[%s][2]'%i1
+    F0 = [o.sage() for o in magma.extend_qexpansion(f,eps_data_f,prec).ElementToSequence()]
+    K = F0[0].parent()
+    a = K.gen()
+    phi = find_embeddings(K,base_ring)[0]
+    F = [phi(o) for o in F0]
+    eps_f = magma.get_character(f, eps_data_f).ValueList().sage()
+    N = len(eps_f)
+    Geps = DirichletGroup(N, base_ring = K)
+    eps_f = Geps([eps_f[i - 1] for i in Geps.unit_gens()])
+
+    try:
+        sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
+    except StopIteration:
+        raise NotImplementedError
+    G = [phi(sigma(o)) for o in F0]
+    eps_g = eps_f**-1
+    F = ModFormqExp(F, base_ring, weight=1, level = N, character = eps_f)
+    G = ModFormqExp(G, base_ring, weight=1, level = N, character = eps_g)
+    return F, G
+
 
