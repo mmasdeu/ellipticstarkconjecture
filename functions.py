@@ -1134,7 +1134,7 @@ def sage_character_to_magma(chi,N=None,magma=None):
         if chim.Order().sage() == order:
             this = [chim.Evaluate(g).sage() for g in gens]
             K = this[0].parent()
-            if this == [K(o) for o in target]:
+            if all((u == v for u, v in zip(this, target))):
                 return chim
     raise RuntimeError("Should not get to this point")
 
