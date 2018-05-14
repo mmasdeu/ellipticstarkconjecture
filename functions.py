@@ -1094,13 +1094,14 @@ def sage_F_ideal_to_magma(F_magma,x,magma):
     return magma.bar_call(Zm,'ideal',[Zm(magma(o)) for o in gens])
 
 class ModFormqExp(SageObject):
-    def __init__(self, v, R = None, weight = 2, character = None, level = -1):
+    def __init__(self, v, R = None, weight = 2, character = None, character_full = None, level = -1):
         if R is None:
             R = v[0].parent()
         self._qexp = [R(o) for o in v]
         self._weight = ZZ(weight)
         self._level = ZZ(level)
         self._character = character
+        self._character_full = character_full
     def __getitem__(self, idx):
         return self._qexp[idx]
     def level(self):
@@ -1115,6 +1116,8 @@ class ModFormqExp(SageObject):
         return self._weight
     def character(self):
         return self._character
+    def character_full(self):
+        return self._character_full
 
 def sage_character_to_magma(chi,N=None,magma=None):
     if magma is None:
@@ -1133,6 +1136,8 @@ def sage_character_to_magma(chi,N=None,magma=None):
         if chim.Order().sage() == order:
             this = [chim.Evaluate(g).sage() for g in gens]
             K = this[0].parent()
+            print this
+            print target
             if all((u == v for u, v in zip(this, target))):
                 return chim
     raise RuntimeError("Should not get to this point")
@@ -1299,9 +1304,12 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
     phi = find_embeddings(K,base_ring)[0]
     F = [phi(o) for o in F0]
     eps_f = magma.get_character(f, eps_data_f).ValueList().sage()
+    eps_f_full = magma.get_character_full(f, eps_data_f).ValueList().sage()
     N = len(eps_f)
     Geps = DirichletGroup(N, base_ring = K)
     eps_f = Geps([eps_f[i - 1] for i in Geps.unit_gens()])
+    Geps_full = DirichletGroup(N)
+    eps_f_full = Geps_full([eps_f_full[i - 1] for i in Geps_f_full.unit_gens()])
 
     try:
         sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
@@ -1309,8 +1317,9 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
         raise NotImplementedError
     G = [phi(sigma(o)) for o in F0]
     eps_g = eps_f**-1
-    F = ModFormqExp(F, base_ring, weight=1, level = N, character = eps_f)
-    G = ModFormqExp(G, base_ring, weight=1, level = N, character = eps_g)
+    eps_g_full = eps_f_full**-1
+    F = ModFormqExp(F, base_ring, weight=1, level = N, character = eps_f, character_full = eps_f_full)
+    G = ModFormqExp(G, base_ring, weight=1, level = N, character = eps_g, character_full = eps_g_full)
     return F, G
 
 
