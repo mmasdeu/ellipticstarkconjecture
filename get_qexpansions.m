@@ -16,6 +16,23 @@ function get_character(f,eps_data) // returns the character eps attached to f
 end function;
 
 
+function get_character_full(f,eps_data) // returns the character eps attached to f
+    K:=Parent(Coefficient(f,0));
+    N:=eps_data[1];
+    v1 := InfinitePlaces(K)[1];
+    gens:=eps_data[2];
+    G := FullDirichletGroup(N);
+    Cyc := BaseRing(G);
+    v2 := InfinitePlaces(Cyc)[1];
+    //G:=FullDirichletGroup(N);
+    // In some levels > 1000 the construction of this group can take an infinity of time!
+    for eps in Elements(G) do // just look for the character with correct values on the generators
+        if [Norm(Evaluate(eps(gens[i][1]), v2) - Evaluate(gens[i][2], v1)) lt 10^-20: i in [1 .. #gens]] eq [true: i in [1 .. #gens]] then
+            return eps;
+        end if;
+    end for;
+end function;
+
 function eisenstein_series_weight_one(eps,K,qprec) // returns E_1(1,eps) modulo q^qprec
 
     Sq<q>:=PowerSeriesRing(K,qprec); // K is the codomain of the character
