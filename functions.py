@@ -439,13 +439,23 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, num_coeffs_qexpansion = 20000, outfile = None):
+def read_matrix_from_file(f):
+    p, prec, rows, cols = sage_eval(f.readline())
+    A = Matrix(Qp(p,prec),rows,cols,0)
+    for i in range(rows):
+        for j in range(cols):
+            A[i,j] = sage_eval(f.readline())
+    return A
+
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None num_coeffs_qexpansion = 20000, outfile = None):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
         raise ValueError('Algorithm should be one of "twostage" (default) or "threestage"')
-    from sage.interfaces.magma import Magma
-    magma = Magma(**magma_args)
+
+    if magma is None:
+        from sage.interfaces.magma import Magma
+        magma = Magma(**magma_args)
     if hasattr(g,'j_invariant'):
         elliptic_curve = g
         g = g.modular_form()
@@ -532,12 +542,14 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 Erows = eimatm.NumberOfRows().sage()
                 Ecols = eimatm.NumberOfColumns().sage()
                 magma.eval('F := Open("%s", "w");'%tmp_filename)
-                magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Aprec,Arows,Acols))
-                magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%Am.name())
-                magma.eval('fprintf F, ") \\n"')
-                magma.eval('fprintf F, "Matrix(Qp(%s,%s),%s, %s, "'%(p,Eprec,Erows, Ecols))
-                magma.eval('fprintf F, "%%o", ElementToSequence(%s)'%eimatm.name())
-                magma.eval('fprintf F, ") \\n"')
+                magma.eval('fprintf F, "%s, %s, %s, %s \\n"'%(p,Aprec,Arows,Acols)) # parameters
+                for i in range(1,Arows+1):
+                    for j in range(1,Acols+1):
+                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(Am.name(),i,j))
+                magma.eval('fprintf F, "%s, %s, %s, %s \\n", '%(p,Eprec,Erows,Ecols)) # parameters
+                for i in range(1,Erows+1):
+                    for j in range(1,Ecols+1):
+                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(eimat.name(),i,j))
                 magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
@@ -548,8 +560,8 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
             from sage.structure.sage_object import load
             from sage.misc.sage_eval import sage_eval
             with open(tmp_filename,'r') as fmagma:
-                A = sage_eval(fmagma.readline(),preparse=False)
-                eimat = sage_eval(fmagma.readline(),preparse=False)
+                A = read_matrix_from_file(fmagma)
+                eimat = read_matrix_from_file(fmagma)
                 zetapm= sage_eval(fmagma.readline())
                 elldash = sage_eval(fmagma.readline())
                 mdash = sage_eval(fmagma.readline())
@@ -1132,13 +1144,12 @@ def sage_character_to_magma(chi,N=None,magma=None):
     order = chi.order()
     gens = G.unit_gens()
     ElGm = magma.DirichletGroupFull(N)
+    Kcyc = CyclotomicField(ElGm.BaseRing().CyclotomicOrder(),names='z')
+    phi = ElGm.BaseRing().sage().hom([Kcyc.gen()])
     target = [chi(g) for g in gens]
     for chim in ElGm.Elements():
         if chim.Order().sage() == order:
-            this = [chim.Evaluate(g).sage() for g in gens]
-            K = this[0].parent()
-            print this
-            print target
+            this = [phi(chim.Evaluate(g).sage()) for g in gens]
             if all((u == v for u, v in zip(this, target))):
                 return chim
     raise RuntimeError("Should not get to this point")
@@ -1308,9 +1319,11 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
     eps_f_full = magma.get_character_full(f, eps_data_f).ValueList().sage()
     N = len(eps_f)
     Geps = DirichletGroup(N, base_ring = K)
+
     eps_f = Geps([eps_f[i - 1] for i in Geps.unit_gens()])
     Geps_full = DirichletGroup(N)
-    eps_f_full = Geps_full([eps_f_full[i - 1] for i in Geps_f_full.unit_gens()])
+    phi = eps_f_full[0].parent().embeddings(Geps_full.base_ring())[0]
+    eps_f_full = Geps_full([phi(eps_f_full[i - 1]) for i in Geps_full.unit_gens()])
 
     try:
         sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
