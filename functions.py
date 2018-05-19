@@ -15,6 +15,7 @@ from sage.structure.sage_object import SageObject
 from sage.interfaces.magma import magma
 from sage.modular.dirichlet import DirichletGroup
 from sage.rings.padics.factory import ZpCA,ZpCR,Qp
+from sage.rings.number_field.number_field import CyclotomicField
 from util import *
 import sys
 
@@ -447,7 +448,7 @@ def read_matrix_from_file(f):
             A[i,j] = sage_eval(f.readline())
     return A
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None num_coeffs_qexpansion = 20000, outfile = None):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, outfile = None):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
