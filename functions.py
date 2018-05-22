@@ -548,7 +548,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 magma.eval('fprintf F, "%s, %s, %s, %s \\n", '%(p,Eprec,Erows,Ecols)) # parameters
                 for i in range(1,Erows+1):
                     for j in range(1,Ecols+1):
-                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(eimat.name(),i,j))
+                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(eimatm.name(),i,j))
                 magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
