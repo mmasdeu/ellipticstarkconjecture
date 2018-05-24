@@ -444,8 +444,7 @@ def read_matrix_from_file(f):
     p, prec, rows, cols = sage_eval(f.readline())
     A = Matrix(Qp(p,prec),rows,cols,0)
     for i in range(rows):
-        for j in range(cols):
-            A[i,j] = sage_eval(f.readline())
+        A.set_row(i,sage_eval(f.readline().replace(' ',',')))
     return A
 
 def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, outfile = None):
@@ -545,12 +544,10 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 magma.eval('F := Open("%s", "w");'%tmp_filename)
                 magma.eval('fprintf F, "%s, %s, %s, %s \\n"'%(p,Aprec,Arows,Acols)) # parameters
                 for i in range(1,Arows+1):
-                    for j in range(1,Acols+1):
-                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(Am.name(),i,j))
+                    magma.eval('fprintf F, "%%o\\n", %s[%s]'%(Am.name(),i))
                 magma.eval('fprintf F, "%s, %s, %s, %s \\n", '%(p,Eprec,Erows,Ecols)) # parameters
                 for i in range(1,Erows+1):
-                    for j in range(1,Ecols+1):
-                        magma.eval('fprintf F, "%%o\\n", %s[%s,%s]'%(eimatm.name(),i,j))
+                    magma.eval('fprintf F, "%%o\\n", %s[%s]'%(eimatm.name(),i))
                 magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
                 magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
@@ -1323,8 +1320,8 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
 
     eps_f = Geps([eps_f[i - 1] for i in Geps.unit_gens()])
     Geps_full = DirichletGroup(N)
-    phi = eps_f_full[0].parent().embeddings(Geps_full.base_ring())[0]
-    eps_f_full = Geps_full([phi(eps_f_full[i - 1]) for i in Geps_full.unit_gens()])
+    psi = eps_f_full[0].parent().embeddings(Geps_full.base_ring())[0]
+    eps_f_full = Geps_full([psi(eps_f_full[i - 1]) for i in Geps_full.unit_gens()])
 
     try:
         sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
