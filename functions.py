@@ -263,10 +263,14 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
 
 def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivative_order = 1, p = None, max_primes = 10):
     ell = 2 # DEBUG: we skip 2 to avoid problems, but it used to work.
-    epstwist = gamma.character()
     level = ZZ(level)
     R = hord[1].parent()
     prec = R.precision_cap()
+    if gamma.character() is not None:
+        embed_char = find_embeddings(gamma.character().values()[0].parent(),R)[0]
+        epstwist = lambda x: embed_char(gamma.character()(x))
+    else:
+        epstwist = None
     tested_primes = 0
     qq = None
     while tested_primes < max_primes:
@@ -436,7 +440,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
             M[i, j] = b[j * ll]
             if j % ll == 0:
                 M[i, j] += R(llpow_eps) * b[j // ll]
-    small_mat = ord_basis.submatrix(0,0,ncols = M.ncols())
+    small_mat = ord_basis.submatrix(0,0,ncols = ncols)
     assert is_echelon(small_mat)
     return solve_xAb_echelon(small_mat,M,p, prec)
 
@@ -543,15 +547,17 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 Ecols = eimatm.NumberOfColumns().sage()
                 magma.eval('F := Open("%s", "w");'%tmp_filename)
                 magma.eval('fprintf F, "%s, %s, %s, %s \\n"'%(p,Aprec,Arows,Acols)) # parameters
-                for i in range(1,Arows+1):
-                    magma.eval('fprintf F, "%%o\\n", %s[%s]'%(Am.name(),i))
-                magma.eval('fprintf F, "%s, %s, %s, %s \\n", '%(p,Eprec,Erows,Ecols)) # parameters
-                for i in range(1,Erows+1):
-                    magma.eval('fprintf F, "%%o\\n", %s[%s]'%(eimatm.name(),i))
-                magma.eval('fprintf F, "%%o\\n", %s'%zetapm.name())
-                magma.eval('fprintf F, "%%o\\n", %s'%elldash.name())
-                magma.eval('fprintf F, "%%o\\n", %s'%mdash.name())
-                # magma.eval('delete F;')
+                magma.eval('save_matrix(%s, F)'%(Am.name()))
+                # for i in range(1,Arows+1):
+                #     magma.eval('fprintf F, "%%o\\n", %s[%s]'%(Am.name(),i))
+                magma.eval('fprintf F, "%s, %s, %s, %s \\n"'%(p,Eprec,Erows,Ecols)) # parameters
+                magma.eval('save_matrix(%s, F)'%(eimatm.name()))
+                # for i in range(1,Erows+1):
+                #     magma.eval('fprintf F, "%%o\\n", %s[%s]'%(eimatm.name(),i))
+                magma.eval('fprintf F, "%s\\n"'%zetapm)
+                magma.eval('fprintf F, "%s\\n"'%elldash)
+                magma.eval('fprintf F, "%s\\n"'%mdash)
+                magma.eval('delete F;')
                 magma.quit()
 
             # Read A and eimat from file
@@ -582,6 +588,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         A, eimat, elldash, mdash = UpOperator(p,N,kk,prec, modformsring = False, weightbound = 6)
 
     fwrite("Step 2: p-depletion, Coleman primitive, and multiply", outfile)
+    fwrite(".. Need %s coefficients of the q-expansion..."%(p**(nu+1) * elldash), outfile)
     H = depletion_coleman_multiply(g, h, p, p**(nu+1) * elldash, t=0)
 
     fwrite("Step 3a: Compute ordinary projection", outfile)

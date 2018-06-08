@@ -15,6 +15,12 @@ function get_character(f,eps_data) // returns the character eps attached to f
     end for;
 end function;
 
+function save_matrix(A,F)
+for i := 1 to NumberOfRows(A) do
+	  fprintf F, "%o\n", A[i];
+  end for;
+return 0;
+end function;
 
 function get_character_full(f,eps_data) // returns the character eps attached to f
     K:=Parent(Coefficient(f,0));
