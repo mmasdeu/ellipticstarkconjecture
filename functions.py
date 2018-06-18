@@ -289,7 +289,8 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
         this_is_zero = pp.subs(R(aell))
         if this_is_zero.valuation(p) < 4: # DEBUG this value is arbitrary...
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
-
+            tested_primes += 1
+            continue
         if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= prec - 2: # DEBUG this value is arbitrary...
             verbose('pp.derivative(derivative_order).subs(R(aell)) = %s'%pp.derivative().subs(R(aell)))
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
