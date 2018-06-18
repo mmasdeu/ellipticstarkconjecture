@@ -262,7 +262,7 @@ def depletion_coleman_multiply(g,h,p,prec,t=0):
     return conv(ans,hn)
 
 def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivative_order = 1, p = None, max_primes = 10):
-    ell = 2 # DEBUG: we skip 2 to avoid problems, but it used to work.
+    ell = 1
     level = ZZ(level)
     R = hord[1].parent()
     prec = R.precision_cap()
@@ -278,7 +278,10 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
         if level % ell == 0:
             continue
         verbose('Using ell = %s'%ell)
-        T = hecke_matrix_on_ord(ell, ord_basis, weight, level, epstwist)
+        try:
+            T = hecke_matrix_on_ord(ell, ord_basis, weight, level, epstwist)
+        except ValueError:
+            break
         aell = gamma[ell] / gamma[1]
         verbose('a_ell = %s'%aell)
         pp = T.charpoly().change_ring(R)
@@ -427,6 +430,8 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
         except AttributeError:
             pass
     ncols = ZZ(floor( (ord_basis.ncols() - 1) / ll)) + 1
+    if ncols < ord_basis.nrows():
+        raise ValueError("Cannot compute the matrix of T_ell with ell=%s because of lack of precision. (nrows = %s, ncols = %s)"%(ell, ord_basis.nrows(), ncols))
     M = Matrix(R, ord_basis.nrows(), ncols, 0)
     if eps is None:
         if level % ll == 0:
