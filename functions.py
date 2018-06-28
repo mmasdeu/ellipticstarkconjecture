@@ -165,10 +165,12 @@ def solve_xAb_echelon(A,b, p=None, prec=None, check=False):
         col_list.append(newcol)
 
     alphas = Matrix(R,ell,hnew.nrows(),col_list).transpose()
+    verbose('Check = %s, p = %s'%(check,p))
     if check and p > 0:
-        # print 'Check with p = %s'%p
+        verbose('Check with p = %s'%p)
         err = min([o.valuation(p) for o in (alphas * try_lift(A) - try_lift(b)).list()])
         if err < 5:
+            verbose('Check not passed!')
             raise RuntimeError("System appears not to be solvable. Minimal valuation is %s"%err)
     return alphas
 
@@ -279,10 +281,15 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
             continue
         verbose('Using ell = %s'%ell)
         try:
-            T = hecke_matrix_on_ord(ell, ord_basis, weight, level, epstwist)
+            T = hecke_matrix_on_ord(ell, ord_basis, weight, level, p=p, eps=epstwist)
         except ValueError:
             break
+        except RuntimeError:
+            verbose("The function hecke_matrix_on_ord raised a Runtime Error. Stopping.")
+            raise AssertionError
         aell = gamma[ell] / gamma[1]
+        if epstwist is not None:
+            aell /= epstwist(ell)
         verbose('a_ell = %s'%aell)
         pp = T.charpoly().change_ring(R)
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
@@ -349,7 +356,7 @@ def find_Apow_and_ord_two_stage(A, E, p, prec, nu=0):
     ord_basis_qexp = try_lift(Matrix(ord_basis)).change_ring(QQ) * E
     return ord_basis_qexp, Apow
 
-def qexp_to_basis(f, E, p=None):
+def qexp_to_basis(f, E, p=None, check=True):
     ncols = len(list(f))
     try:
         R = f.parent().base_ring()
@@ -361,7 +368,7 @@ def qexp_to_basis(f, E, p=None):
         fmat = Matrix(R,1,len(f), f)
     verbose('R = %s'%R)
     verbose('E.parent() = %s'%E.parent())
-    return vector(solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),fmat,p).list())
+    return vector(solve_xAb_echelon(E.submatrix(0,0,ncols = ncols),fmat,p,check=check).list())
 
 def katz_to_qexp(fvec, E):
     return fvec * E
@@ -422,7 +429,7 @@ def compute_ordinary_projection_two_stage(H, Apow_data, E, elldash,p):
     ans = katz_to_qexp(betas, Emat)
     return ans
 
-def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None, prec=None):
+def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None, prec=None, check_is_operator=True):
     R = ord_basis.parent().base_ring()
     if prec is None:
         try:
@@ -431,7 +438,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
             pass
     ncols = ZZ(floor( (ord_basis.ncols() - 1) / ll)) + 1
     if ncols < ord_basis.nrows():
-        raise ValueError("Cannot compute the matrix of T_ell with ell=%s because of lack of precision. (nrows = %s, ncols = %s)"%(ell, ord_basis.nrows(), ncols))
+        raise ValueError("Cannot compute the matrix of T_ell with ell=%s because of lack of precision. (nrows = %s, ncols = %s)"%(ll, ord_basis.nrows(), ncols))
     M = Matrix(R, ord_basis.nrows(), ncols, 0)
     if eps is None:
         if level % ll == 0:
@@ -439,7 +446,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
         else:
             llpow_eps = ll**(weight-1)
     else:
-        llpow_eps = ll**(weight-1) * eps(ll)
+        llpow_eps = ll**(weight-1) * eps(ll) # DEBUG
 
     for i, b in enumerate(ord_basis):
         for j in range(ncols):
@@ -448,7 +455,32 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
                 M[i, j] += R(llpow_eps) * b[j // ll]
     small_mat = ord_basis.submatrix(0,0,ncols = ncols)
     assert is_echelon(small_mat)
-    return solve_xAb_echelon(small_mat,M,p, prec)
+    ans = solve_xAb_echelon(small_mat,M,p, prec, check=check_is_operator)
+    return ans
+
+def hecke_operator_on_qexp(ll, qexp, weight = 2, level = 1, eps = None, p=None, prec=None):
+    R = qexp[0].parent().base_ring()
+    if prec is None:
+        try:
+            prec = R.precision_cap()
+        except AttributeError:
+            pass
+    ncols = ZZ(floor( (len(qexp) - 1) / ll)) + 1
+    if eps is None:
+        if level % ll == 0:
+            llpow_eps = ZZ(0)
+        else:
+            llpow_eps = ll**(weight-1)
+    else:
+        llpow_eps = ll**(weight-1) * eps(ll)
+
+    ans = []
+    for j in range(ncols):
+        newval = qexp[j * ll]
+        if j % ll == 0:
+            newval += R(llpow_eps) * qexp[j // ll]
+        ans.append(newval)
+    return ans
 
 def read_matrix_from_file(f):
     p, prec, rows, cols = sage_eval(f.readline())
@@ -610,7 +642,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if lauders_advice == True:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -630,7 +662,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     elif orthogonal_form is None:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order, p = p)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -641,7 +673,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     else:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, derivative_order=derivative_order, p = p)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
                 break
             except RuntimeError:
                 derivative_order += 1
@@ -1321,8 +1353,9 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
     magma.set('prec',prec)
     f = 'eigenforms_list[%s][1]'%i1
     eps_data_f = 'eigenforms_list[%s][2]'%i1
-    F0 = [o.sage() for o in magma.extend_qexpansion(f,eps_data_f,prec).ElementToSequence()]
-    K = F0[0].parent()
+    qexpm = magma.extend_qexpansion(f,eps_data_f,prec)
+    F0 = [0] * qexpm.Valuation().sage() + [o.sage() for o in qexpm.ElementToSequence()]
+    K = F0[-1].parent()
     a = K.gen()
     phi = find_embeddings(K,base_ring)[0]
     F = [phi(o) for o in F0]
