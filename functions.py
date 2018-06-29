@@ -299,7 +299,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
             raise ValueError("The derivative_order (= %s) is too high."%derivative_order)
         x = pp.parent().gen()
         this_is_zero = pp.subs(R(aell))
-        verbose("this_is_zero = %s"this_is_zero)
+        verbose("this_is_zero = %s"%this_is_zero)
         if this_is_zero.valuation(p) < 4: # DEBUG this value is arbitrary...
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
             tested_primes += 1
