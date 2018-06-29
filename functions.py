@@ -270,7 +270,8 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
     prec = R.precision_cap()
     if gamma.character() is not None:
         embed_char = find_embeddings(gamma.character().values()[0].parent(),R)[0]
-        epstwist = lambda x: embed_char(gamma.character()(x))
+        chi_inv = gamma.character()**-1
+        epstwist = lambda x: embed_char(chi_inv(x))
     else:
         epstwist = None
     tested_primes = 0
@@ -289,7 +290,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
             raise AssertionError
         aell = gamma[ell] / gamma[1]
         if epstwist is not None:
-            aell /= epstwist(ell)
+            aell *= epstwist(ell)
         verbose('a_ell = %s'%aell)
         pp = T.charpoly().change_ring(R)
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
