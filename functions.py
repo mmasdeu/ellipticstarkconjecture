@@ -295,9 +295,11 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
         pp = T.charpoly().change_ring(R)
         verbose('deg charpoly(T_ell) = %s'%pp.degree())
         if pp.degree() <= derivative_order:
+            verbose("The derivative_order (= %s) is too high."%derivative_order)
             raise ValueError("The derivative_order (= %s) is too high."%derivative_order)
         x = pp.parent().gen()
         this_is_zero = pp.subs(R(aell))
+        verbose("this_is_zero = %s"this_is_zero)
         if this_is_zero.valuation(p) < 4: # DEBUG this value is arbitrary...
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
             tested_primes += 1
@@ -307,19 +309,25 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
             tested_primes += 1
         else:
+            verbose("Performing division...")
             qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
+            verbose("Done, success!")
             break
 
     if qq is None:
+        verbose("Too many tested primes...")
         raise RuntimeError("Reached maximum number of tested primes")
     # qq = qq.parent()([o.lift() for o in qq.list()])
+    verbose("Now doing final steps of projection...")
     qqT = try_lift(qq(T))
     qq_aell = qq.subs(R(aell))
     ord_basis_small = try_lift(ord_basis.submatrix(0,0,ncols=len(hord)))
     hord_in_katz = qexp_to_basis(hord, ord_basis_small)
     qT_hord_in_katz = hord_in_katz * qqT
     qT_hord = qT_hord_in_katz * try_lift(ord_basis)
-    return ell, (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
+    ans = (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
+    verbose("Now doing final steps of projection...DONE")
+    return ell, ans
 
 def find_Apow_and_ord_three_stage(A, E, p, prec, nu=0):
     R = ZpCA(p,prec)
@@ -647,10 +655,13 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 break
             except RuntimeError:
                 derivative_order += 1
+                verbose("Increasing experimental derivative order to %s"%derivative_order)
             except ValueError:
+                verbose("Experimental derivative order (%s) seems too high"%derivative_order)
                 fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
                 fwrite("Seems too high...", outfile)
                 fwrite("######################################")
+                assert 0
         n = 1
         while f[n] == 0:
             n += 1
