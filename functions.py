@@ -276,6 +276,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
         epstwist = None
     tested_primes = 0
     qq = None
+    success = False
     while tested_primes < max_primes:
         ell = next_prime(ell)
         if level % ell == 0:
@@ -304,28 +305,35 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
             verbose('!!! Should we skip ell = %s (because %s != 0 (val = %s))?????'%(ell,this_is_zero,this_is_zero.valuation(p)))
             tested_primes += 1
             continue
-        if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= prec - 2: # DEBUG this value is arbitrary...
+        if pp.derivative(derivative_order).subs(R(aell)).valuation(p) >= prec - 4: # DEBUG this value is arbitrary...
             verbose('pp.derivative(derivative_order).subs(R(aell)) = %s'%pp.derivative().subs(R(aell)))
             verbose('... Skipping ell = %s because polynomial has repeated roots'%ell)
             tested_primes += 1
         else:
             verbose("Performing division...")
             qq = pp.quo_rem((x-R(aell))**ZZ(derivative_order))[0]
-            verbose("Done, success!")
-            break
+            qq_aell = qq.subs(R(aell))
+            verbose('qq_aell = %s'%qq_aell)
+            try:
+                qq_aell_inv = qq_aell**-1
+                success = True
+                verbose("Done, success!")
+                break
+            except:
+                verbose("qq_aell seems to be zero")
+                tested_primes += 1
 
-    if qq is None:
+    if not success:
         verbose("Too many tested primes...")
         raise RuntimeError("Reached maximum number of tested primes")
     # qq = qq.parent()([o.lift() for o in qq.list()])
     verbose("Now doing final steps of projection...")
     qqT = try_lift(qq(T))
-    qq_aell = qq.subs(R(aell))
     ord_basis_small = try_lift(ord_basis.submatrix(0,0,ncols=len(hord)))
     hord_in_katz = qexp_to_basis(hord, ord_basis_small)
     qT_hord_in_katz = hord_in_katz * qqT
     qT_hord = qT_hord_in_katz * try_lift(ord_basis)
-    ans = (qq_aell**-1 * try_lift(qT_hord)).change_ring(R)
+    ans = (qq_aell_inv * try_lift(qT_hord)).change_ring(R)
     verbose("Now doing final steps of projection...DONE")
     return ell, ans
 
@@ -498,7 +506,7 @@ def read_matrix_from_file(f):
         A.set_row(i,sage_eval(f.readline().replace(' ',',')))
     return A
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, outfile = None):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, max_primes=5, outfile = None):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
@@ -651,7 +659,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if lauders_advice == True:
         while True:
             try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
+                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order, max_primes=max_primes)
                 break
             except RuntimeError:
                 derivative_order += 1
