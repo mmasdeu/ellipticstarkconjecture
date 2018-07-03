@@ -1,7 +1,8 @@
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.all import ZZ,QQ,RR
 from sage.rings.polynomial.convolution import _convolution_naive as convolution
-from sage.arith.misc import next_prime,LCM
+from sage.arith.misc import next_prime,LCM,GCD
+from sage.rings.fast_arith import prime_range
 from sage.functions.other import factorial
 from sage.modules.free_module_element import free_module_element as vector
 from sage.rings.padics.factory import Qp
@@ -335,7 +336,10 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
     qT_hord = qT_hord_in_katz * try_lift(ord_basis)
     ans = (qq_aell_inv * try_lift(qT_hord)).change_ring(R)
     verbose("Now doing final steps of projection...DONE")
-    return ell, ans
+    if epstwist is None:
+    if epstwist is None:
+        epstwist = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
+    return ell, ans, epstwist
 
 def find_Apow_and_ord_three_stage(A, E, p, prec, nu=0):
     R = ZpCA(p,prec)
@@ -458,12 +462,8 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
         raise ValueError("Cannot compute the matrix of T_ell with ell=%s because of lack of precision. (nrows = %s, ncols = %s)"%(ll, ord_basis.nrows(), ncols))
     M = Matrix(R, ord_basis.nrows(), ncols, 0)
     if eps is None:
-        if level % ll == 0:
-            llpow_eps = ZZ(0)
-        else:
-            llpow_eps = ll**(weight-1)
-    else:
-        llpow_eps = ll**(weight-1) * eps(ll) # DEBUG
+        eps = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
+    llpow_eps = ll**(weight-1) * eps(ll)
 
     for i, b in enumerate(ord_basis):
         for j in range(ncols):
@@ -656,47 +656,29 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     Hord = Hord.change_ring(h[1].parent())
     print [Hord[i] for i in range(30)]
     fwrite("Step 4: Project onto f-component", outfile)
-    if lauders_advice == True:
-        while True:
-            try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order, max_primes=max_primes)
-                break
-            except RuntimeError:
-                derivative_order += 1
-                verbose("Increasing experimental derivative order to %s"%derivative_order)
-            except ValueError:
-                verbose("Experimental derivative order (%s) seems too high"%derivative_order)
-                fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
-                fwrite("Seems too high...", outfile)
-                fwrite("######################################")
-                assert 0
-        n = 1
-        while f[n] == 0:
-            n += 1
-        Lpa =  piHord[n] / f[n]
+    while True:
+        try:
+            ell, piHord, epstwist = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order, max_primes=max_primes)
+            break
+        except RuntimeError:
+            derivative_order += 1
+            verbose("Increasing experimental derivative order to %s"%derivative_order)
+        except ValueError:
+            verbose("Experimental derivative order (%s) seems too high"%derivative_order)
+            fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
+            fwrite("Seems too high...", outfile)
+            fwrite("######################################", outfile)
+            assert 0
+    n = 1
+    while f[n] == 0:
+        n = next_prime(n)
+    if lauders_advice == True or orthogonal_form is None:
+        Lpa =  piHord[n] / (f[n] * epstwist(n))
         fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
         fwrite("Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)", outfile)
-        fwrite(str([(Lpa * f[i] - piHord[i]).valuation(p) for i in range(1,20)]), outfile)
+        fwrite(str([(i,(Lpa * f[i] * epstwist(i) - piHord[i]).valuation(p)) for i in prime_range(20)]), outfile)
         fwrite("Done", outfile)
-
-    elif orthogonal_form is None:
-        while True:
-            try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
-                break
-            except RuntimeError:
-                derivative_order += 1
-        n = 1
-        while f[n] == 0:
-            n += 1
-        Lpa =  piHord[n] / f[n]
     else:
-        while True:
-            try:
-                ell, piHord = project_onto_eigenspace(f, ord_basis, Hord, kk, N * p, p = p, derivative_order=derivative_order)
-                break
-            except RuntimeError:
-                derivative_order += 1
         gplus, gminus = f, orthogonal_form
         l1 = 2
         while N*p*ell % l1 == 0 or gplus[l1] == 0:
@@ -706,9 +688,6 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         Lpa = Lpalist[0]
         if Lpa.valuation() > prec / 2: # this is quite arbitrary!
             Lpa = Lpalist[1]
-        n = 1
-        while f[n] == 0:
-            n += 1
         Lpa = Lpa / f[n]
     fwrite("ell = %s"%ell, outfile)
     fwrite("######### FINISHED COMPUTATION ###########", outfile)
@@ -1399,5 +1378,3 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
     F = ModFormqExp(F, base_ring, weight=1, level = N, character = eps_f, character_full = eps_f_full)
     G = ModFormqExp(G, base_ring, weight=1, level = N, character = eps_g, character_full = eps_g_full)
     return F, G
-
-
