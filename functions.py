@@ -1338,6 +1338,8 @@ def find_embeddings(M, K):
     '''
     p = K.prime()
     zeta = M.gen()
+    if zeta == 1:
+        return [M.hom([K(zeta)])]
     f = zeta.minpoly()
     f *= f.denominator()
     fp = f.change_ring(GF(p))
