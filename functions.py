@@ -1369,10 +1369,13 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
     psi = eps_f_full[0].parent().embeddings(Geps_full.base_ring())[0]
     eps_f_full = Geps_full([psi(eps_f_full[i - 1]) for i in Geps_full.unit_gens()])
 
-    try:
-        sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
-    except StopIteration:
-        raise NotImplementedError
+    if a == 1:
+        sigma = lambda x:x
+    else:
+        try:
+            sigma = next((s for s in K.automorphisms() if s(a)*a == 1))
+        except StopIteration:
+            raise NotImplementedError
     G = [phi(sigma(o)) for o in F0]
     eps_g = eps_f**-1
     eps_g_full = eps_f_full**-1
