@@ -337,7 +337,6 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
     ans = (qq_aell_inv * try_lift(qT_hord)).change_ring(R)
     verbose("Now doing final steps of projection...DONE")
     if epstwist is None:
-    if epstwist is None:
         epstwist = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
     return ell, ans, epstwist
 
@@ -1335,6 +1334,8 @@ def find_embeddings(M, K):
     '''
     p = K.prime()
     zeta = M.gen()
+    if zeta == 1:
+        return [M.hom([K(zeta)])]
     f = zeta.minpoly()
     f *= f.denominator()
     fp = f.change_ring(GF(p))
