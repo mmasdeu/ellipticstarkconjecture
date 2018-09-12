@@ -462,7 +462,11 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
     M = Matrix(R, ord_basis.nrows(), ncols, 0)
     if eps is None:
         eps = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
-    llpow_eps = ll**(weight-1) * eps(ll)
+    if weight is None:
+        assert eps(ll) == 0
+        llpow_eps = 0
+    else:
+        llpow_eps = ll**(weight-1) * eps(ll)
 
     for i, b in enumerate(ord_basis):
         for j in range(ncols):
