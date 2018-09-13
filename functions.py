@@ -1352,11 +1352,19 @@ def find_embeddings(M, K):
     return [M.hom([o]) for o in ans]
 
 def get_magma_qexpansions(filename, i1, prec, base_ring):
-    magma.load(filename)
-    magma.load("get_qexpansions.m")
     magma.set('prec',prec)
-    f = 'eigenforms_list[%s][1]'%i1
-    eps_data_f = 'eigenforms_list[%s][2]'%i1
+    magma.load("get_qexpansions.m")
+    if i1 is None:
+        for line in filename:
+            print line
+            magma.eval(line)
+        magma.eval("f := g") # In case text is reversed
+        f = 'f'
+        eps_data_f = 'eps_on_gens'
+    else:
+        magma.load(filename)
+        f = 'eigenforms_list[%s][1]'%i1
+        eps_data_f = 'eigenforms_list[%s][2]'%i1
     qexpm = magma.extend_qexpansion(f,eps_data_f,prec)
     F0 = [0] * qexpm.Valuation().sage() + [o.sage() for o in qexpm.ElementToSequence()]
     K = F0[-1].parent()
