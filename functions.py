@@ -523,12 +523,19 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         g = g.modular_form()
     else:
         elliptic_curve = None
+    data = None
     if h is None:
-        # Assume we need to create f and h from Dirichlet character
-        kronecker_character = f
-        f, _, h = define_qexpansions_from_dirichlet_character(p, prec, kronecker_character, num_coeffs_qexpansion, magma)
-    else:
-        kronecker_character = None
+        if hasattr(f, 'modulus'):
+            # Assume we need to create f and h from Dirichlet character
+            kronecker_character = f
+            f, _, h = define_qexpansions_from_dirichlet_character(p, prec, kronecker_character, num_coeffs_qexpansion, magma)
+        else:
+            kronecker_character = None
+            # Assume that f contains a list of lines of text to initialize both f and h
+            data = f
+            f, h = get_magma_qexpansions(data, None, 20, Qp(p,prec))
+
+
     ll,mm = g.weight(),h.weight()
     t = 0 # Assume t = 0 here
     kk = ll + mm - 2 * (1 + t) # Is this correct?
@@ -647,6 +654,9 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
 
     fwrite("Step 2: p-depletion, Coleman primitive, and multiply", outfile)
     fwrite(".. Need %s coefficients of the q-expansion..."%(p**(nu+1) * elldash), outfile)
+    if data is not None:
+        f, h = get_magma_qexpansions(data, None, (p**(nu+1) * elldash) + 200, Qp(p,prec))
+
     H = depletion_coleman_multiply(g, h, p, p**(nu+1) * elldash, t=0)
 
     fwrite("Step 3a: Compute ordinary projection", outfile)
