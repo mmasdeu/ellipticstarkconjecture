@@ -534,6 +534,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
             # Assume that f contains a list of lines of text to initialize both f and h
             data = f
             f, h = get_magma_qexpansions(data, None, 20, Qp(p,prec))
+            eps = f.character_full()
 
 
     ll,mm = g.weight(),h.weight()
@@ -1375,7 +1376,7 @@ def get_magma_qexpansions(filename, i1, prec, base_ring):
         magma.load(filename)
         f = 'eigenforms_list[%s][1]'%i1
         eps_data_f = 'eigenforms_list[%s][2]'%i1
-    qexpm = magma.extend_qexpansion(f,eps_data_f,prec)
+    qexpm = magma.extend_qexpansion(f, eps_data_f, prec)
     F0 = [0] * qexpm.Valuation().sage() + [o.sage() for o in qexpm.ElementToSequence()]
     K = F0[-1].parent()
     a = K.gen()
