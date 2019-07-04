@@ -559,6 +559,10 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     if kronecker_character is not None:
         fwrite("kronecker_character = %s"%kronecker_character, outfile)
         fwrite("  conductor = %s"%kronecker_character.conductor(), outfile)
+    if data is not None:
+        fwrite("Data for weight-1 forms:", outfile)
+        for line in data:
+            fwrite(line, outfile)
     fwrite("Tame level N = %s, prime p = %s, nu = %s"%(N,p,nu), outfile)
     fwrite("precision = %s"%prec, outfile)
     fwrite("------ parameters --------------------", outfile)
@@ -611,6 +615,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
                 Eprec = Emodulus.valuation(p)
                 Erows = eimatm.NumberOfRows().sage()
                 Ecols = eimatm.NumberOfColumns().sage()
+                magma.load("get_qexpansions.m")
                 magma.eval('F := Open("%s", "w");'%tmp_filename)
                 magma.eval('fprintf F, "%s, %s, %s, %s \\n"'%(p,Aprec,Arows,Acols)) # parameters
                 magma.eval('save_matrix(%s, F)'%(Am.name()))
