@@ -1,7 +1,7 @@
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.all import ZZ,QQ,RR
 from sage.rings.polynomial.convolution import _convolution_naive as convolution
-from sage.arith.misc import next_prime,LCM,GCD
+from sage.arith.all import next_prime,lcm,gcd
 from sage.rings.fast_arith import prime_range
 from sage.functions.other import factorial
 from sage.modules.free_module_element import free_module_element as vector
@@ -337,7 +337,7 @@ def project_onto_eigenspace(gamma, ord_basis, hord, weight=2, level=1, derivativ
     ans = (qq_aell_inv * try_lift(qT_hord)).change_ring(R)
     verbose("Now doing final steps of projection...DONE")
     if epstwist is None:
-        epstwist = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
+        epstwist = lambda ll : ZZ(1) if gcd(level,ll) == 1 else ZZ(0)
     return ell, ans, epstwist
 
 def find_Apow_and_ord_three_stage(A, E, p, prec, nu=0):
@@ -461,7 +461,7 @@ def hecke_matrix_on_ord(ll, ord_basis, weight = 2, level = 1, eps = None, p=None
         raise ValueError("Cannot compute the matrix of T_ell with ell=%s because of lack of precision. (nrows = %s, ncols = %s)"%(ll, ord_basis.nrows(), ncols))
     M = Matrix(R, ord_basis.nrows(), ncols, 0)
     if eps is None:
-        eps = lambda ll : ZZ(1) if GCD(level,ll) == 1 else ZZ(0)
+        eps = lambda ll : ZZ(1) if gcd(level,ll) == 1 else ZZ(0)
     if weight is None:
         assert eps(ll) == 0
         llpow_eps = 0
@@ -533,7 +533,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
             kronecker_character = None
             # Assume that f contains a list of lines of text to initialize both f and h
             data = f
-            f, h = get_magma_qexpansions(data, None, 20, Qp(p,prec))
+            f, h = get_magma_qexpansions(data, None, max(prec,200), Qp(p,prec))
             eps = f.character_full()
 
 
@@ -542,7 +542,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     kk = ll + mm - 2 * (1 + t) # Is this correct?
     p = ZZ(p)
     if N is None:
-        N = LCM([ZZ(f.level()),ZZ(g.level()),ZZ(h.level())])
+        N = lcm([ZZ(f.level()),ZZ(g.level()),ZZ(h.level())])
         nu = N.valuation(p)
         N = N.prime_to_m_part(p)
     else:
@@ -1215,7 +1215,7 @@ def define_qexpansions_from_dirichlet_character(p, prec, eps, num_coefficients, 
     N = eps.modulus()
     g1qexp = sage_character_to_magma(eps,N=N,magma=magma).ModularForms(1).EisensteinSeries()[1].qExpansion(num_coefficients + 20).Eltseq().sage()  # DEBUG
 
-    den = LCM([QQ(o).denominator() for o in g1qexp])
+    den = lcm([QQ(o).denominator() for o in g1qexp])
     g1qexp = [ZZ(den * o) for o in g1qexp]
     print len(g1qexp)
 
