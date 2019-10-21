@@ -13,7 +13,6 @@ from sage.modular.modform.constructor import ModularForms
 from sage.modular.modform.hecke_operator_on_qexp import hecke_operator_on_basis, hecke_operator_on_qexp
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.structure.sage_object import SageObject
-from sage.interfaces.magma import magma
 from sage.modular.dirichlet import DirichletGroup
 from sage.rings.padics.factory import ZpCA,ZpCR,Qp
 from sage.rings.number_field.number_field import CyclotomicField
@@ -509,7 +508,7 @@ def read_matrix_from_file(f):
         A.set_row(i,sage_eval(f.readline().replace(' ',',')))
     return A
 
-def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, max_primes=5, outfile = None):
+def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps = None, orthogonal_form = None, data_idx=None, magma_args = None,force_computation=False, algorithm='threestage', derivative_order=1, lauders_advice = False, use_magma = True, magma = None, num_coeffs_qexpansion = 20000, max_primes=5, outfile = None):
     if magma_args is None:
         magma_args = {}
     if algorithm not in ['twostage','threestage']:
@@ -533,7 +532,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
             kronecker_character = None
             # Assume that f contains a list of lines of text to initialize both f and h
             data = f
-            f, h = get_magma_qexpansions(data, None, max(prec,200), Qp(p,prec))
+            f, h = get_magma_qexpansions(data, data_idx, max(prec,200), Qp(p,prec), magma=magma)
             eps = f.character_full()
 
 
@@ -661,7 +660,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
     fwrite("Step 2: p-depletion, Coleman primitive, and multiply", outfile)
     fwrite(".. Need %s coefficients of the q-expansion..."%(p**(nu+1) * elldash), outfile)
     if data is not None:
-        f, h = get_magma_qexpansions(data, None, (p**(nu+1) * elldash) + 200, Qp(p,prec))
+        f, h = get_magma_qexpansions(data, data_idx, (p**(nu+1) * elldash) + 200, Qp(p,prec), magma=magma)
 
     H = depletion_coleman_multiply(g, h, p, p**(nu+1) * elldash, t=0)
 
@@ -695,7 +694,7 @@ def Lpvalue(f,g,h,p,prec,N = None,modformsring = False, weightbound = False, eps
         Lpa =  piHord[n] / (f[n] * epstwist(n))
         fwrite("Experimental derivative_order = %s"%derivative_order, outfile)
         fwrite("Checking Lauder's coincidence... (following should be a bunch of 'large' valuations)", outfile)
-        fwrite(str([(i,(Lpa * f[i] * epstwist(i) - piHord[i]).valuation(p)) for i in prime_range(20)]), outfile)
+        fwrite(str([(i,(Lpa * f[i] * epstwist(i) - piHord[i]).valuation(p)) for i in prime_range(50)]), outfile)
         fwrite("Done", outfile)
     else:
         gplus, gminus = f, orthogonal_form
@@ -1367,7 +1366,10 @@ def find_embeddings(M, K):
             pass
     return [M.hom([o]) for o in ans]
 
-def get_magma_qexpansions(filename, i1, prec, base_ring):
+def get_magma_qexpansions(filename, i1, prec, base_ring, magma=None):
+    if magma is None:
+        from sage.interfaces.magma import Magma
+        magma = Magma()
     magma.set('prec',prec)
     magma.load("get_qexpansions.m")
     if i1 is None:
